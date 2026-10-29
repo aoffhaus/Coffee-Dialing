@@ -1,0 +1,2334 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Coffee Dial-In Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column (max 720px), sticky header, thumb-reach tab bar fixed to the bottom. */
+:root {
+  --bg: #F2F3EF;
+  --surface: #FFFFFF;
+  --surface-2: #E8EAE4;
+  --ink: #1A1E1C;
+  --muted: #5C6560;
+  --line: #D3D8D1;
+  --accent: #1D6A55;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #DCEBE4;
+  --sour: #A07C00;
+  --sour-soft: #F5EDC8;
+  --bitter: #7E4B2C;
+  --bitter-soft: #F0E1D6;
+  --tone: #4B5A70;
+  --tone-soft: #E1E6EE;
+  --warn: #A9480B;
+  --warn-soft: #FBEADB;
+  --danger: #B3261E;
+  --danger-soft: #F9E1DE;
+  --hl: #FFF1A8;
+  --shadow: 0 10px 30px rgba(20, 30, 25, .14);
+  /* Chart series (validated: CVD ΔE ≥ 15 in both themes) */
+  --c-esp: #0F7D5B;
+  --c-po: #4C74C9;
+  --on-series: #FFFFFF;
+
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 14px;
+  --tap: 48px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111413; --surface: #191D1B; --surface-2: #232825; --ink: #E6EAE7; --muted: #9BA49F; --line: #2E3431;
+    --accent: #5DC1A0; --accent-ink: #0B1D17; --accent-soft: #183830;
+    --sour: #E3C24F; --sour-soft: #36301A; --bitter: #D69C76; --bitter-soft: #3A2A20;
+    --tone: #A9B7CC; --tone-soft: #262D38;
+    --warn: #F0A35E; --warn-soft: #3A2715; --danger: #F07A6E; --danger-soft: #3D1D1A; --hl: #4A4116;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    --c-esp: #2FA27A; --c-po: #6688D8; --on-series: #0B1512;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111413; --surface: #191D1B; --surface-2: #232825; --ink: #E6EAE7; --muted: #9BA49F; --line: #2E3431;
+  --accent: #5DC1A0; --accent-ink: #0B1D17; --accent-soft: #183830;
+  --sour: #E3C24F; --sour-soft: #36301A; --bitter: #D69C76; --bitter-soft: #3A2A20;
+  --tone: #A9B7CC; --tone-soft: #262D38;
+  --warn: #F0A35E; --warn-soft: #3A2715; --danger: #F07A6E; --danger-soft: #3D1D1A; --hl: #4A4116;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  --c-esp: #2FA27A; --c-po: #6688D8; --on-series: #0B1512;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 15px/1.45 var(--f-body);
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 30; background: var(--bg);
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+.wrap {
+  max-width: 720px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* ---------- Shell ---------- */
+.app-header {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.app-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px; }
+.brand { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.brand b { font-family: var(--f-display); font-weight: 800; font-size: 21px; letter-spacing: -0.02em; }
+.brand span { font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.status i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.status.is-warn { color: var(--warn); }
+.status.is-warn i { background: var(--warn); }
+
+main > .wrap { padding-block: 16px calc(100px + env(safe-area-inset-bottom, 0px)); }
+
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: max(8px, env(safe-area-inset-left, 0px));
+  padding-right: max(8px, env(safe-area-inset-right, 0px));
+}
+.tabbar-inner { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.tab {
+  min-height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  background: none; border: 0; color: var(--muted); font-size: 11.5px; font-weight: 500; padding: 0 2px;
+}
+.tab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tab[aria-current="page"] { color: var(--accent); font-weight: 600; }
+
+/* ---------- Generic building blocks ---------- */
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.page-title { font-family: var(--f-display); font-weight: 800; font-size: 28px; letter-spacing: -0.02em; line-height: 1.1; margin: 4px 0 0; text-wrap: balance; }
+.sec-title { font-family: var(--f-display); font-weight: 600; font-size: 19px; letter-spacing: -0.01em; margin: 0; }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.lbl { display: block; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.lbl .unit { text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: 4px; }
+.lbl-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hint { font-size: 12px; color: var(--muted); }
+.note { margin: 0; font-size: 13px; color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 640px) { .grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.input, select, textarea {
+  width: 100%; min-height: var(--tap); padding: 10px 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+}
+textarea { resize: vertical; min-height: 64px; line-height: 1.4; }
+select {
+  appearance: none; -webkit-appearance: none; padding-right: 36px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px; background-repeat: no-repeat;
+}
+
+.btn {
+  min-height: var(--tap); padding: 0 18px; border-radius: 12px; border: 1px solid transparent;
+  font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-sm { min-height: 40px; padding: 0 14px; font-size: 14px; }
+.btn-block { width: 100%; min-height: 56px; font-size: 16px; }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-secondary { background: var(--surface); border-color: var(--line); }
+.btn-ghost { background: transparent; border-color: var(--line); }
+.btn-danger { background: var(--danger); color: var(--surface); }
+.btn-danger-ghost { background: transparent; border-color: var(--line); color: var(--danger); }
+.link-btn { background: none; border: 0; padding: 6px 0; color: var(--accent); font-weight: 600; font-size: 14px; }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-row > .btn { flex: 1 1 140px; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px;
+  background: var(--surface-2); color: var(--ink); font-size: 12px; font-weight: 500; white-space: nowrap;
+}
+.chip-good { background: var(--accent-soft); color: var(--accent); }
+.chip-sour { background: var(--sour-soft); color: var(--sour); }
+.chip-bitter { background: var(--bitter-soft); color: var(--bitter); }
+.chip-tone { background: var(--tone-soft); color: var(--tone); }
+.chip-roast { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 12px; }
+.seg button {
+  min-height: 42px; border: 0; border-radius: 9px; background: transparent; color: var(--muted);
+  font-weight: 600; font-size: 14px; padding: 0 8px;
+}
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.seg button:disabled { cursor: default; opacity: .6; }
+.seg-lg button { min-height: 50px; font-size: 16px; }
+
+/* ---------- Stepper ---------- */
+.step-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.step-btn { min-height: 56px; border: 0; background: var(--surface-2); font-size: 24px; font-weight: 500; color: var(--ink); user-select: none; -webkit-user-select: none; }
+.step-btn:active { background: var(--line); }
+.step-input {
+  width: 100%; min-width: 0; border: 0; text-align: center; background: transparent;
+  font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 500;
+}
+.step-input:focus { outline: none; background: var(--accent-soft); }
+.stepper.is-suggested .step-row { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.stepper.is-suggested .step-input { background: var(--hl); }
+.stepper.is-suggested .lbl { color: var(--accent); }
+.stepper.is-suggested .lbl::after { content: " · suggested"; text-transform: none; letter-spacing: 0; }
+
+/* ---------- Brew form ---------- */
+.bean-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.applied { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.applied-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--accent); }
+.applied-title { font-weight: 600; }
+.applied-detail { font-size: 14px; }
+.readout { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
+.ro-label { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.ro-val { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+.ro-sub { font-size: 13px; color: var(--muted); }
+.warn { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 500; }
+.warn-list { display: flex; flex-direction: column; gap: 6px; }
+.form-err { color: var(--danger); font-size: 14px; font-weight: 500; }
+.form-err:empty { display: none; }
+.edit-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--tone-soft); color: var(--tone); font-weight: 600; }
+
+.scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.scale-btn {
+  min-height: 56px; padding: 4px 2px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
+  font-size: 12px; font-weight: 500; line-height: 1.15; color: var(--muted);
+}
+.scale-btn[aria-checked="true"] { background: var(--cs); border-color: var(--c); color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 1px var(--c); }
+.scale-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.rating .scale-btn { font-family: var(--f-mono); font-size: 18px; }
+
+/* ---------- Suggestion card ---------- */
+.sug { border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); overflow: hidden; }
+.sug-main { padding: 18px 16px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--line); }
+.sug-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.sug-title { font-family: var(--f-display); font-weight: 800; font-size: 26px; letter-spacing: -0.02em; line-height: 1.1; margin: 0; text-wrap: balance; }
+.sug-detail { font-size: 16px; font-weight: 500; }
+.sug-reason { margin: 4px 0 0; color: var(--muted); max-width: 60ch; }
+.sug-alt { padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; }
+.sug-alt .lbl { margin-bottom: 2px; }
+.sug.is-dialed .sug-main { background: var(--accent-soft); }
+.sug .warn-list { padding: 0 16px 16px; }
+.saved-line { display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------- Beans ---------- */
+.bean-list, .brew-list, .list { display: flex; flex-direction: column; gap: 10px; }
+.bean-card {
+  text-align: left; width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
+}
+.bean-card.is-finished { opacity: .72; }
+.bc-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.bc-name { font-weight: 600; font-size: 16px; min-width: 0; }
+.bc-sub { display: block; color: var(--muted); font-size: 13px; }
+.bc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.bc-best { display: block; font-size: 12px; color: var(--accent); }
+.tl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.tl-cell { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; min-width: 0; border-left: 1px solid var(--line); }
+.tl-cell:first-child { border-left: 0; }
+.tl-cell .lbl { font-size: 10.5px; }
+.tl-date { font-size: 14px; font-weight: 500; }
+.tl-cell.is-empty .tl-date { color: var(--muted); }
+.tl-sub { font-size: 11.5px; color: var(--muted); }
+@media (max-width: 380px) { .tl-cell { padding: 7px 8px; } .tl-date { font-size: 13px; } }
+.group-label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 6px 0 -4px; }
+.back { align-self: flex-start; }
+.detail-head { display: flex; flex-direction: column; gap: 6px; }
+.detail-head .page-title { margin: 0; }
+.best { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); }
+.best-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--accent); }
+.best-main { font-size: 15px; font-weight: 500; }
+.trend svg { width: 100%; height: auto; display: block; }
+.trend .grid-line { stroke: var(--line); stroke-width: 1; }
+.trend .axis-text { fill: var(--muted); font: 10px var(--f-mono); }
+.trend .line { stroke: var(--accent); stroke-width: 2; fill: none; }
+.trend .area { fill: var(--accent-soft); opacity: .8; stroke: none; }
+.trend .pt-e { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; }
+.trend .pt-p { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+/* ---------- History rows ---------- */
+.brew-row { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.brew-row.open { border-color: var(--muted); }
+.br-head { width: 100%; text-align: left; background: none; border: 0; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.br-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.br-bean { font-weight: 600; font-size: 14px; }
+.br-date { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+.br-params { display: block; font-size: 13px; }
+.br-taste { display: flex; flex-wrap: wrap; gap: 6px; }
+.mbadge { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; background: var(--c-esp); color: var(--on-series); }
+.mbadge.m-pourover { background: var(--c-po); }
+.br-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
+.kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; margin: 0; }
+.kv div { min-width: 0; }
+.kv dt { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.kv dd { margin: 0; font-family: var(--f-mono); font-size: 14px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.quote { margin: 0; font-style: italic; }
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.filters { display: flex; flex-direction: column; gap: 10px; }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: var(--radius); }
+
+/* ---------- Settings ---------- */
+.list-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.list-row:last-of-type { border-bottom: 0; }
+.list-row .lr-main { min-width: 0; }
+.list-row .lr-name { font-weight: 600; }
+.list-row .lr-sub { font-size: 13px; color: var(--muted); }
+.json-box { font-family: var(--f-mono); font-size: 12px; min-height: 120px; }
+.file-label { position: relative; overflow: hidden; }
+.file-label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+/* ---------- Tracker ---------- */
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile-val { font-family: var(--f-display); font-weight: 800; font-size: 26px; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile-sub { font-size: 12px; color: var(--muted); }
+@media (max-width: 400px) { .tile { padding: 10px; } .tile-val { font-size: 21px; } }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.sw-esp { background: var(--c-esp); }
+.sw-po { background: var(--c-po); }
+.legend-row { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.legend-row span { display: inline-flex; align-items: center; gap: 6px; }
+.split-row { display: flex; flex-direction: column; gap: 6px; }
+.split-bar { display: flex; gap: 2px; height: 16px; }
+.split-bar span { display: block; height: 100%; min-width: 4px; }
+.split-bar span:first-child { border-radius: 4px 0 0 4px; }
+.split-bar span:last-child { border-radius: 0 4px 4px 0; }
+.split-bar span:only-child { border-radius: 4px; }
+.split-legend { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.split-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-wrap { position: relative; min-height: 200px; }
+.chart-wrap svg { display: block; width: 100%; height: auto; overflow: visible; }
+.c-grid { stroke: var(--line); stroke-width: 1; }
+.c-base { stroke: var(--muted); stroke-width: 1; }
+.c-axis { fill: var(--muted); font-family: var(--f-mono); font-size: 11px; }
+.c-esp { fill: var(--c-esp); }
+.c-po { fill: var(--c-po); }
+.c-band { fill: transparent; }
+.c-band.on { fill: var(--surface-2); }
+.c-hit { fill: transparent; cursor: crosshair; }
+.tip {
+  position: absolute; top: 0; z-index: 2; pointer-events: none; min-width: 168px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
+  padding: 8px 10px; font-size: 12px; display: flex; flex-direction: column; gap: 3px;
+}
+.tip b { font-size: 12px; }
+.tip-row { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.tip-row .v { margin-left: auto; padding-left: 12px; }
+.tip-row.total { border-top: 1px solid var(--line); padding-top: 3px; font-weight: 600; }
+.table-scroll { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.data-table th, .data-table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.data-table th { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.data-table th:first-child, .data-table td:first-child { text-align: left; }
+.bag { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.bag:last-child { border-bottom: 0; padding-bottom: 0; }
+.bag-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.bag-name { font-weight: 600; min-width: 0; }
+.bag-val { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bag-bar { display: flex; gap: 2px; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.bag-bar span { display: block; height: 100%; }
+
+/* ---------- Welcome ---------- */
+.welcome { padding: 22px 18px; gap: 14px; }
+.welcome h1 { font-family: var(--f-display); font-weight: 800; font-size: 30px; line-height: 1.05; letter-spacing: -0.025em; margin: 0; text-wrap: balance; }
+.welcome p { margin: 0; color: var(--muted); max-width: 58ch; }
+.compass { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; font-size: 13px; }
+.compass div { padding: 10px; border-radius: 10px; background: var(--surface-2); }
+.compass b { display: block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Sheet, toast ---------- */
+.overlay { position: fixed; inset: 0; z-index: 50; background: rgba(10, 14, 12, .45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  width: 100%; max-width: 560px; max-height: 92vh; display: flex; flex-direction: column;
+  background: var(--bg); border-radius: 18px 18px 0 0; box-shadow: var(--shadow);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: rise .18s ease-out;
+}
+@media (min-width: 640px) { .overlay { align-items: center; } .sheet { border-radius: 18px; } }
+@keyframes rise { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 6px max(16px, env(safe-area-inset-left, 0px)); }
+.sheet-head h2 { font-family: var(--f-display); font-weight: 600; font-size: 20px; margin: 0; }
+.icon-btn { width: 44px; height: 44px; border: 0; background: var(--surface-2); border-radius: 50%; font-size: 22px; line-height: 1; }
+.sheet-body { overflow-y: auto; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 14px; }
+.sheet-body p { margin: 0; }
+.sheet-foot { display: flex; gap: 10px; padding: 12px 16px 16px; border-top: 1px solid var(--line); }
+.sheet-foot .btn { flex: 1; }
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 60;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  max-width: min(92vw, 440px); padding: 12px 16px; border-radius: 12px;
+  background: var(--ink); color: var(--bg); font-size: 14px; font-weight: 500; box-shadow: var(--shadow);
+  transition: opacity .3s;
+}
+.toast.warn { background: var(--warn); color: var(--surface); }
+.toast.out { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } .toast { transition: none; } }
+</style>
+
+<header class="app-header">
+  <div class="wrap">
+    <div class="brand"><b>Dial-In</b><span>Coffee log</span></div>
+    <div id="status" class="status"></div>
+  </div>
+</header>
+
+<main><div class="wrap" id="view"><p class="muted">Loading your brews…</p></div></main>
+
+<nav class="tabbar" aria-label="Sections">
+  <div class="tabbar-inner">
+    <button class="tab" type="button" data-tab="brew">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h13v4a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6V9z"/><path d="M17 10.5h1.2a2.5 2.5 0 0 1 0 5H16.5"/><path d="M8 3.5c0 1.4 1 1.4 1 2.8M12 3.5c0 1.4 1 1.4 1 2.8"/></svg>
+      Brew
+    </button>
+    <button class="tab" type="button" data-tab="beans">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="12" rx="6" ry="9" transform="rotate(35 12 12)"/><path d="M16.6 5.6c-3.4 2.4-1.6 7.6-5.6 11.6"/></svg>
+      Beans
+    </button>
+    <button class="tab" type="button" data-tab="history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+      History
+    </button>
+    <button class="tab" type="button" data-tab="tracker">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-5M12 16V6M17 16v-8"/></svg>
+      Tracker
+    </button>
+    <button class="tab" type="button" data-tab="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h3M11 17h9"/><circle cx="16" cy="7" r="2.3"/><circle cx="9" cy="17" r="2.3"/></svg>
+      Settings
+    </button>
+  </div>
+</nav>
+
+<script>
+'use strict';
+/* =====================================================================
+   COFFEE DIAL-IN TRACKER
+   Sections:
+     1. Utilities
+     2. Data layer (IndexedDB -> localStorage -> memory fallback)
+     3. Tuning logic (edit TUNING_RULES to change suggestion amounts)
+     4. App state & domain helpers
+     5. UI components
+     6. Views (Brew, Beans, History, Tracker, Settings)
+     7. Boot
+   ===================================================================== */
+
+/* =====================================================================
+   1. UTILITIES
+   ===================================================================== */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+const r1 = (n) => Math.round(n * 10) / 10;
+
+function decimalsOf(step) {
+  const s = String(step);
+  return s.includes('.') ? s.split('.')[1].length : 0;
+}
+function roundTo(n, step) {
+  if (!step) return n;
+  return +(Math.round(n / step) * step).toFixed(decimalsOf(step));
+}
+function num(v) {
+  const n = parseFloat(String(v).replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+const fmt1 = (n) => n == null ? '–' : (+n).toFixed(1);
+const fmt0 = (n) => n == null ? '–' : String(Math.round(n));
+const fmtNum = (n) => n == null ? '–' : String(Math.round(n * 100) / 100);
+
+function localDateStr(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function toLocalInput(ts) {
+  const d = new Date(ts), p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+/** Whole days between a roast date (YYYY-MM-DD) and a moment (default: now). */
+function daysSince(dateStr, at = Date.now()) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const roast = new Date(y, m - 1, d).getTime();
+  const ref = new Date(at);
+  const day = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate()).getTime();
+  return Math.round((day - roast) / 86400000);
+}
+/** 'YYYY-MM-DD' -> local midnight timestamp. */
+function dateTs(ds) {
+  if (!ds) return null;
+  const [y, m, d] = ds.split('-').map(Number);
+  return y && m && d ? new Date(y, m - 1, d).getTime() : null;
+}
+/** 'YYYY-MM-DD' -> "Oct 16" (adds the year when it isn't this year). */
+function fmtDay(ds) {
+  const t = dateTs(ds);
+  if (t == null) return '—';
+  const d = new Date(t);
+  const opts = { month: 'short', day: 'numeric' };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString(undefined, opts);
+}
+const fmtDate = (ts) => new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const fmtDateTime = (ts) => new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+function mmss(sec) {
+  if (sec == null) return '–:––';
+  sec = Math.max(0, Math.round(sec));
+  return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+}
+function parseMmss(s) {
+  s = String(s).trim();
+  if (s.includes(':')) {
+    const [m, x] = s.split(':');
+    return (num(m) || 0) * 60 + (num(x) || 0);
+  }
+  return num(s);
+}
+
+/* Temperature is always stored in °C; displayed in the user's unit. */
+const cToF = (c) => c * 9 / 5 + 32;
+const fToC = (f) => (f - 32) * 5 / 9;
+const tUnit = () => state.settings.tempUnit === 'C' ? 'C' : 'F';
+function tempToDisplay(c) {
+  if (c == null) return null;
+  return tUnit() === 'F' ? Math.round(cToF(c)) : Math.round(c * 2) / 2;
+}
+const tempFromDisplay = (v) => tUnit() === 'F' ? fToC(v) : v;
+function tempLabel(c) {
+  const v = tempToDisplay(c);
+  return v == null ? '–' : `${v} °${tUnit()}`;
+}
+const tempDeltaLabel = (dc) => tUnit() === 'F' ? `${Math.round(Math.abs(dc) * 1.8)} °F` : `${Math.abs(dc)} °C`;
+
+/* Tiny DOM builder: h('div', {class:'x', onclick: fn}, child, ...) */
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (v == null || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (typeof v === 'function' && k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
+      else if (k === 'value' || k === 'checked') el[k] = v;
+      else el.setAttribute(k, v === true ? '' : String(v));
+    }
+  }
+  for (const c of kids.flat(Infinity)) {
+    if (c == null || c === false) continue;
+    el.append(c instanceof Node ? c : String(c));
+  }
+  return el;
+}
+
+/* =====================================================================
+   2. DATA LAYER
+   Each collection (beans, grinders, brewers, brews, settings) is saved
+   as one value under its name. IndexedDB first, then localStorage, then
+   memory only. Every storage call is wrapped in try/catch.
+   ===================================================================== */
+const COLLECTIONS = ['beans', 'grinders', 'brewers', 'brews', 'settings'];
+const DB_NAME = 'coffee-dialin';
+const DB_STORE = 'kv';
+const LS_PREFIX = 'coffee-dialin:';
+
+function idbReq(r) {
+  return new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+}
+function idbTx(tx) {
+  return new Promise((res, rej) => {
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error || new Error('Transaction aborted'));
+  });
+}
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('Timed out')), ms))]);
+}
+function openIDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(DB_STORE);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.onblocked = () => rej(new Error('IndexedDB blocked'));
+  });
+}
+
+const Store = {
+  backend: 'memory', // 'indexeddb' | 'localstorage' | 'memory'
+  db: null,
+  async init() {
+    try {
+      if (!('indexedDB' in window)) throw new Error('No IndexedDB');
+      this.db = await withTimeout(openIDB(), 2500);
+      this.backend = 'indexeddb';
+      return;
+    } catch (e) { console.warn('IndexedDB unavailable:', e); }
+    try {
+      localStorage.setItem(LS_PREFIX + '__test', '1');
+      localStorage.removeItem(LS_PREFIX + '__test');
+      this.backend = 'localstorage';
+    } catch (e) {
+      console.warn('localStorage unavailable:', e);
+      this.backend = 'memory';
+    }
+  },
+  async get(key) {
+    if (this.backend === 'indexeddb') {
+      try { return await idbReq(this.db.transaction(DB_STORE).objectStore(DB_STORE).get(key)); }
+      catch (e) { console.warn('IDB read failed', e); }
+    }
+    if (this.backend !== 'memory') {
+      try { const raw = localStorage.getItem(LS_PREFIX + key); return raw ? JSON.parse(raw) : undefined; }
+      catch (e) { console.warn('localStorage read failed', e); }
+    }
+    return undefined;
+  },
+  async set(key, value) {
+    if (this.backend === 'indexeddb') {
+      try {
+        const tx = this.db.transaction(DB_STORE, 'readwrite');
+        tx.objectStore(DB_STORE).put(value, key);
+        await idbTx(tx);
+        return true;
+      } catch (e) { console.warn('IDB write failed', e); }
+    }
+    if (this.backend !== 'memory') {
+      try { localStorage.setItem(LS_PREFIX + key, JSON.stringify(value)); return true; }
+      catch (e) { console.warn('localStorage write failed', e); }
+    }
+    return false;
+  }
+};
+
+/** Save the named collections. Warns once if nothing can be saved. */
+async function persist(...keys) {
+  let ok = true;
+  for (const k of keys) ok = (await Store.set(k, clone(state[k]))) && ok;
+  ui.saveOk = ok;
+  renderStatus();
+  if (!ok && !ui.warnedSave) {
+    ui.warnedSave = true;
+    toast('This browser is not saving data. Export from Settings to keep it.', 'warn');
+  }
+  return ok;
+}
+let settingsTimer = null;
+function persistSettingsSoon() {
+  clearTimeout(settingsTimer);
+  settingsTimer = setTimeout(() => persist('settings'), 400);
+}
+
+/* =====================================================================
+   3. TUNING LOGIC
+   Taste has two independent axes, each scored -2..+2:
+     extraction: -2 very sour ... 0 balanced ... +2 very bitter
+     strength:   -2 very weak ... 0 balanced ... +2 very strong
+   Severity 1 = "slightly", 2 = "very". Edit the amounts below.
+   ===================================================================== */
+const TUNING_RULES = {
+  espresso: {
+    grindSteps: { 1: 1, 2: 2 },     // grinder steps (multiplied by the grinder's step size)
+    yieldG:     { 1: 2, 2: 4 },     // grams of yield
+    doseG:      { 1: 0.5, 2: 1 },   // grams of dose
+    tempC:      { 1: 1, 2: 2 },     // °C
+    sanity: { timeMin: 20, timeMax: 40, ratioMin: 1.5, ratioMax: 3 }
+  },
+  pourover: {
+    grindSteps: { 1: 1, 2: 2 },
+    ratio:      { 1: 0.5, 2: 1 },   // change to x in 1:x (dose changes, water stays fixed)
+    tempC:      { 1: 2, 2: 3 },
+    sanity: { ratioMin: 13, ratioMax: 18 }
+  },
+  limits: { tempCMin: 80, tempCMax: 100 }
+};
+
+const METHOD_LABEL = { espresso: 'Espresso', pourover: 'Pour-over' };
+const STRENGTH = [
+  { v: -2, short: 'Very weak' }, { v: -1, short: 'Weak' }, { v: 0, short: 'Balanced' },
+  { v: 1, short: 'Strong' }, { v: 2, short: 'Very strong' }
+];
+const EXTRACTION = [
+  { v: -2, short: 'Very sour' }, { v: -1, short: 'Sour' }, { v: 0, short: 'Balanced' },
+  { v: 1, short: 'Bitter' }, { v: 2, short: 'Very bitter' }
+];
+
+function ratioOf(b) {
+  if (!b || !(b.dose > 0)) return null;
+  if (b.method === 'espresso') return b.yield > 0 ? b.yield / b.dose : null;
+  return b.water > 0 ? b.water / b.dose : null;
+}
+
+/** Flags recipes outside the usual ranges. Works on drafts and saved brews. */
+function sanityChecks(b) {
+  const R = TUNING_RULES[b.method].sanity;
+  const w = [];
+  const r = ratioOf(b);
+  if (b.method === 'espresso') {
+    if (b.time > 0 && b.time < R.timeMin) w.push(`Shot time ${b.time} s is under the usual ${R.timeMin}–${R.timeMax} s. Likely channeling or too coarse.`);
+    if (b.time > R.timeMax) w.push(`Shot time ${b.time} s is over the usual ${R.timeMin}–${R.timeMax} s. Likely too fine or choking.`);
+    if (r != null && r < R.ratioMin) w.push(`Ratio 1:${r.toFixed(1)} is shorter than the usual 1:${R.ratioMin}–1:${R.ratioMax}.`);
+    if (r != null && r > R.ratioMax) w.push(`Ratio 1:${r.toFixed(1)} is longer than the usual 1:${R.ratioMin}–1:${R.ratioMax}.`);
+  } else if (r != null && (r < R.ratioMin || r > R.ratioMax)) {
+    w.push(`Ratio 1:${r.toFixed(1)} is outside the usual 1:${R.ratioMin}–1:${R.ratioMax} for pour-over.`);
+  }
+  return w;
+}
+
+/** Builders for each possible change. Each returns {field, delta, title, detail}. */
+function actionsFor(b) {
+  const R = TUNING_RULES[b.method];
+  const g = grinderById(b.grinderId);
+  const step = g && g.step > 0 ? g.step : 1;
+  const lowerIsFiner = g ? g.finerIsLower !== false : true;
+  return {
+    // dir: -1 finer, +1 coarser
+    grind(dir, sev) {
+      const steps = R.grindSteps[sev];
+      const delta = +(dir * steps * step * (lowerIsFiner ? 1 : -1)).toFixed(decimalsOf(step));
+      const stepTxt = `${steps} step${steps > 1 ? 's' : ''}`;
+      const detail = b.grind != null ? `${fmtNum(b.grind)} → ${fmtNum(roundTo(b.grind + delta, step))} (${stepTxt})` : stepTxt;
+      return { field: 'grind', delta, title: `Grind ${dir < 0 ? 'finer' : 'coarser'}`, detail };
+    },
+    // dir: +1 hotter, -1 cooler
+    temp(dir, sev) {
+      const L = TUNING_RULES.limits;
+      let delta = dir * R.tempC[sev];
+      if (b.tempC != null) delta = clamp(b.tempC + delta, L.tempCMin, L.tempCMax) - b.tempC;
+      const detail = b.tempC != null ? `${tempLabel(b.tempC)} → ${tempLabel(b.tempC + delta)}` : `by ${tempDeltaLabel(delta)}`;
+      return { field: 'tempC', delta, title: `${dir > 0 ? 'Raise' : 'Lower'} water temp`, detail };
+    },
+    // espresso: dir +1 longer ratio (more yield)
+    yield(dir, sev) {
+      const delta = dir * R.yieldG[sev];
+      const ny = (b.yield || 0) + delta;
+      const nr = b.dose > 0 ? ` (1:${(ny / b.dose).toFixed(1)})` : '';
+      return { field: 'yield', delta, title: `${dir > 0 ? 'Increase' : 'Decrease'} yield`, detail: `${fmt1(b.yield)} → ${fmt1(ny)} g${nr}` };
+    },
+    // espresso: dir +1 more coffee
+    dose(dir, sev) {
+      const delta = dir * R.doseG[sev];
+      return { field: 'dose', delta, title: `${dir > 0 ? 'Increase' : 'Decrease'} dose`, detail: `${fmt1(b.dose)} → ${fmt1(b.dose + delta)} g` };
+    },
+    // pour-over: water stays fixed, dose moves. dir -1 = shorter ratio (more coffee, stronger)
+    ratio(dir, sev) {
+      const cur = ratioOf(b) || state.settings.defaults.pourover.ratio;
+      const next = cur + dir * R.ratio[sev];
+      const newDose = r1(b.water / next);
+      const delta = r1(newDose - b.dose);
+      return {
+        field: 'dose', delta,
+        title: dir < 0 ? 'Use more coffee' : 'Use less coffee',
+        detail: `${fmt1(b.dose)} → ${fmt1(newDose)} g · 1:${cur.toFixed(1)} → 1:${next.toFixed(1)}`
+      };
+    }
+  };
+}
+
+/**
+ * The suggestion engine: one primary change, one secondary option, a reason,
+ * and sanity warnings. Returns null if the taste axes are not filled in.
+ */
+function suggest(b) {
+  const E = b.taste && b.taste.extraction;
+  const S = b.taste && b.taste.strength;
+  if (E == null || S == null) return null;
+  const warnings = sanityChecks(b);
+
+  if (E === 0 && S === 0) {
+    return {
+      dialedIn: true, primary: null, secondary: null, warnings,
+      reason: `Strength and extraction are both balanced. This is now the bean's best ${METHOD_LABEL[b.method].toLowerCase()} recipe.`
+    };
+  }
+
+  const A = actionsFor(b);
+  const sevE = Math.abs(E) || 1, sevS = Math.abs(S) || 1;
+  const sev = Math.max(Math.abs(E), Math.abs(S));
+  const sour = E < 0, bitter = E > 0, weak = S < 0, strong = S > 0;
+  let primary, secondary, reason;
+
+  if (b.method === 'espresso') {
+    if (sour && weak)        { primary = A.grind(-1, sev); secondary = A.yield(-1, sevS); reason = 'Sour and weak means under-extracted and thin. A finer grind slows the shot and raises both.'; }
+    else if (sour && strong) { primary = A.yield(+1, sev); secondary = A.temp(+1, 1);     reason = 'Sour but strong: a longer ratio extracts more while diluting the intensity.'; }
+    else if (bitter && strong){ primary = A.grind(+1, sev); secondary = A.temp(-1, 1);    reason = 'Bitter and strong: a coarser grind speeds the shot and lowers both extraction and strength.'; }
+    else if (bitter && weak) { primary = A.yield(-1, sev); secondary = A.temp(-1, 1);     reason = 'Bitter but weak: a shorter ratio cuts the bitter tail of the shot and concentrates it.'; }
+    else if (sour)           { primary = A.grind(-1, sevE); secondary = A.temp(+1, 1);    reason = 'Strength is right but it is sour (under-extracted). Grind finer without changing the ratio.'; }
+    else if (bitter)         { primary = A.grind(+1, sevE); secondary = A.temp(-1, 1);    reason = 'Strength is right but it is bitter (over-extracted). Grind coarser without changing the ratio.'; }
+    else if (weak)           { primary = A.yield(-1, sevS); secondary = A.dose(+1, 1);    reason = 'Extraction is balanced but the shot is thin. Stop earlier for a shorter, stronger ratio.'; }
+    else                     { primary = A.yield(+1, sevS); secondary = A.dose(-1, 1);    reason = 'Extraction is balanced but the shot is too intense. Let it run longer for a longer ratio.'; }
+  } else {
+    if (sour && weak)        { primary = A.grind(-1, sev); secondary = A.ratio(-1, sevS); reason = 'Sour and weak means under-extracted and thin. A finer grind raises extraction and strength together.'; }
+    else if (sour && strong) { primary = A.ratio(+1, sev); secondary = A.temp(+1, 1);     reason = 'Sour but strong: less coffee for the same water extracts each gram further and softens the intensity.'; }
+    else if (bitter && strong){ primary = A.grind(+1, sev); secondary = A.temp(-1, 1);    reason = 'Bitter and strong: a coarser grind lowers extraction and strength together.'; }
+    else if (bitter && weak) { primary = A.ratio(-1, sev); secondary = A.temp(-1, 1);     reason = 'Bitter but weak: more coffee for the same water extracts each gram less and adds body.'; }
+    else if (sour)           { primary = A.grind(-1, sevE); secondary = A.temp(+1, 1);    reason = 'Strength is right but it is sour (under-extracted). Grind finer and keep the ratio.'; }
+    else if (bitter)         { primary = A.grind(+1, sevE); secondary = A.temp(-1, 1);    reason = 'Strength is right but it is bitter (over-extracted). Grind coarser and keep the ratio.'; }
+    else if (weak)           { primary = A.ratio(-1, sevS); secondary = A.grind(-1, 1);   reason = 'Extraction is balanced but the cup is thin. Use more coffee for the same water.'; }
+    else                     { primary = A.ratio(+1, sevS); secondary = A.grind(+1, 1);   reason = 'Extraction is balanced but the cup is heavy. Use less coffee for the same water.'; }
+  }
+  return { dialedIn: false, primary, secondary, reason, severity: sev, warnings };
+}
+
+/** Applies one suggested change to a draft. Returns false if the field is empty. */
+function applyChange(d, change) {
+  if (!change || d[change.field] == null) return false;
+  const f = change.field;
+  if (f === 'grind') {
+    const g = grinderById(d.grinderId);
+    d.grind = roundTo(d.grind + change.delta, g && g.step > 0 ? g.step : 1);
+  } else if (f === 'tempC') {
+    d.tempC = d.tempC + change.delta;
+  } else {
+    d[f] = r1(d[f] + change.delta);
+  }
+  return true;
+}
+
+/* =====================================================================
+   4. APP STATE & DOMAIN HELPERS
+   ===================================================================== */
+const DEFAULT_SETTINGS = {
+  tempUnit: 'F',
+  defaults: {
+    espresso: { dose: 18, yield: 36, tempC: 93, time: 28 },
+    pourover: { water: 250, ratio: 16, tempC: 96, bloomWater: 50, bloomTime: 45, brewTime: 180 }
+  },
+  onboarded: false,
+  lastMethod: 'espresso',
+  lastGrinderId: null
+};
+const state = { beans: [], grinders: [], brewers: [], brews: [], settings: clone(DEFAULT_SETTINGS) };
+
+const ui = {
+  tab: 'brew',
+  draft: null,          // the brew form currently being filled
+  editingId: null,      // brew id when editing an existing brew
+  result: null,         // brew id whose suggestion card is showing
+  beanDetailId: null,
+  expandedBrewId: null,
+  hf: { method: 'all', beanId: 'all' },
+  tr: { range: '12w', measure: 'beans', metric: 'amount', showTable: false },
+  trData: null,
+  importMode: 'merge',
+  sheet: null,
+  sheetOnClose: null,
+  saveOk: true,
+  warnedSave: false
+};
+
+function mergeSettings(s) {
+  const out = clone(DEFAULT_SETTINGS);
+  if (!s || typeof s !== 'object') return out;
+  for (const k of Object.keys(s)) if (k !== 'defaults') out[k] = s[k];
+  if (s.defaults) {
+    for (const m of ['espresso', 'pourover']) Object.assign(out.defaults[m], s.defaults[m] || {});
+  }
+  return out;
+}
+function normalizeBrew(b) {
+  b.taste = b.taste || {};
+  if (!('notes' in b.taste)) b.taste.notes = '';
+  return b;
+}
+
+const beanById = (id) => state.beans.find((b) => b.id === id);
+const grinderById = (id) => state.grinders.find((g) => g.id === id);
+const brewerById = (id) => state.brewers.find((b) => b.id === id);
+function brewsFor(beanId, method) {
+  return state.brews
+    .filter((b) => (!beanId || b.beanId === beanId) && (!method || b.method === method))
+    .sort((a, b) => b.ts - a.ts);
+}
+/** Date of the first brew logged with a bean, as 'YYYY-MM-DD'. */
+function firstBrewDate(beanId) {
+  const list = brewsFor(beanId);
+  return list.length ? localDateStr(new Date(list[list.length - 1].ts)) : null;
+}
+/**
+ * Bean lifecycle dates. startDate is stored when the first brew is logged
+ * (or entered by hand); older beans without one fall back to the first brew.
+ * finishedDate is set when the bean is marked finished and cleared if reopened.
+ */
+function beanDates(bean) {
+  return {
+    roast: bean.roastDate || null,
+    start: bean.startDate || firstBrewDate(bean.id),
+    finished: bean.status === 'finished' ? (bean.finishedDate || null) : null
+  };
+}
+/** Best recipe = the most recent dialed-in brew for that bean + method. */
+const bestBrew = (beanId, method) => brewsFor(beanId, method).find((b) => b.dialedIn) || null;
+
+function defaultBeanId() {
+  const active = state.beans.filter((b) => b.status !== 'finished');
+  const recent = state.brews.slice().sort((a, b) => b.ts - a.ts).find((br) => active.some((b) => b.id === br.beanId));
+  return recent ? recent.beanId : (active[0] ? active[0].id : null);
+}
+
+const FIELDS = {
+  common: ['grind', 'dose', 'tempC'],
+  espresso: ['yield', 'time', 'preinf'],
+  pourover: ['water', 'bloomWater', 'bloomTime', 'brewTime']
+};
+
+/**
+ * Builds a new brew form: last brew of this bean + method with its suggestion
+ * applied; otherwise last brew of the method; otherwise the default recipe.
+ */
+function buildDraft(method, beanId) {
+  const D = state.settings.defaults[method];
+  const lastG = grinderById(state.settings.lastGrinderId) ? state.settings.lastGrinderId : (state.grinders[0] ? state.grinders[0].id : null);
+  const brewer = state.brewers.find((x) => x.type === method);
+  const d = {
+    method, beanId, grinderId: lastG, brewerId: brewer ? brewer.id : null,
+    grind: null, tempC: D.tempC, notes: '',
+    taste: { strength: null, extraction: null, rating: null, notes: '' },
+    highlight: null, base: null
+  };
+  if (method === 'espresso') Object.assign(d, { dose: D.dose, yield: D.yield, time: D.time, preinf: 0 });
+  else Object.assign(d, { water: D.water, dose: r1(D.water / D.ratio), bloomWater: D.bloomWater, bloomTime: D.bloomTime, brewTime: D.brewTime });
+
+  const same = beanId ? brewsFor(beanId, method)[0] : null;
+  const anyLast = brewsFor(null, method)[0];
+  const src = same || anyLast;
+  if (src) {
+    for (const f of [...FIELDS.common, ...FIELDS[method]]) if (src[f] != null) d[f] = src[f];
+    if (grinderById(src.grinderId)) d.grinderId = src.grinderId;
+    if (brewerById(src.brewerId)) d.brewerId = src.brewerId;
+  }
+  if (same) {
+    d.base = { type: 'same', ts: same.ts, dialedIn: !!same.dialedIn };
+    const p = same.suggestion && same.suggestion.primary;
+    if (p && !same.dialedIn && applyChange(d, p)) d.highlight = { field: p.field, title: p.title, detail: p.detail };
+  } else if (anyLast) {
+    const ob = beanById(anyLast.beanId);
+    d.base = { type: 'other', ts: anyLast.ts, beanName: ob ? ob.name : 'another bean' };
+  }
+  return d;
+}
+function draftFromBrew(b) {
+  const d = clone(b);
+  d.taste = Object.assign({ strength: null, extraction: null, rating: null, notes: '' }, d.taste);
+  d.notes = d.notes || '';
+  d.highlight = null;
+  return d;
+}
+
+/* =====================================================================
+   5. UI COMPONENTS
+   ===================================================================== */
+function toast(msg, kind = '') {
+  const t = h('div', { class: 'toast ' + kind, role: 'status' }, msg);
+  document.body.append(t);
+  setTimeout(() => t.classList.add('out'), 2800);
+  setTimeout(() => t.remove(), 3200);
+}
+
+function openSheet(title, body, footer, onClose) {
+  closeSheet(true);
+  const ov = h('div', { class: 'overlay' });
+  ov.addEventListener('click', (e) => { if (e.target === ov) closeSheet(); });
+  ov.append(h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+    h('div', { class: 'sheet-head' },
+      h('h2', {}, title),
+      h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close', onclick: () => closeSheet() }, '×')),
+    h('div', { class: 'sheet-body' }, body),
+    footer ? h('div', { class: 'sheet-foot' }, footer) : null));
+  document.body.append(ov);
+  ui.sheet = ov;
+  ui.sheetOnClose = onClose || null;
+  requestAnimationFrame(() => {
+    const f = ov.querySelector('.sheet-body input, .sheet-body textarea, .sheet-foot .btn:last-child');
+    if (f) f.focus();
+  });
+}
+function closeSheet(silent) {
+  if (!ui.sheet) return;
+  ui.sheet.remove();
+  ui.sheet = null;
+  const cb = ui.sheetOnClose;
+  ui.sheetOnClose = null;
+  if (cb && !silent) cb();
+}
+/** In-page confirmation (the artifact viewer blocks window.confirm). */
+function confirmDialog(message, okLabel = 'Delete', danger = true) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (settled) return; settled = true; ui.sheetOnClose = null; closeSheet(true); resolve(v); };
+    openSheet('Please confirm', h('p', {}, message), [
+      h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => done(false) }, 'Cancel'),
+      h('button', { class: 'btn ' + (danger ? 'btn-danger' : 'btn-primary'), type: 'button', onclick: () => done(true) }, okLabel)
+    ], () => done(false));
+  });
+}
+
+function Field(label, control, forId, hint) {
+  return h('div', { class: 'field' },
+    h('label', { class: 'lbl', for: forId }, label),
+    control,
+    hint ? h('div', { class: 'hint' }, hint) : null);
+}
+function Select(id, options, value, onChange, label) {
+  const s = h('select', { id, 'aria-label': label }, options.map((o) => h('option', { value: o.value }, o.label)));
+  s.value = value == null ? '' : value;
+  s.addEventListener('change', () => onChange(s.value));
+  return s;
+}
+/** Segmented control that triggers a re-render through onPick. */
+function Seg(opts, value, onPick, o = {}) {
+  return h('div', { class: 'seg ' + (o.cls || ''), role: 'group', 'aria-label': o.label },
+    opts.map((x) => h('button', {
+      type: 'button', 'aria-pressed': String(x.value === value), disabled: !!o.disabled,
+      onclick: () => onPick(x.value)
+    }, x.label)));
+}
+/** Segmented control that updates in place (used inside sheets). */
+function SegLive(opts, get, set, label) {
+  const el = h('div', { class: 'seg', role: 'group', 'aria-label': label });
+  const sync = () => el.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', String(opts[i].value === get())));
+  opts.forEach((o) => el.append(h('button', { type: 'button', onclick: () => { set(o.value); sync(); } }, o.label)));
+  sync();
+  el.sync = sync;
+  return el;
+}
+
+/** Press and hold to repeat (for stepper buttons). */
+function holdRepeat(btn, fn) {
+  let t1, t2;
+  const stop = () => { clearTimeout(t1); clearInterval(t2); };
+  btn.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    fn();
+    t1 = setTimeout(() => { t2 = setInterval(fn, 90); }, 450);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel', 'blur'].forEach((ev) => btn.addEventListener(ev, stop));
+  btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } });
+  btn.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
+/**
+ * Number stepper: [−] [value] [+]. Updates the model in place (no re-render)
+ * so press-and-hold keeps working; o.onChange refreshes derived readouts.
+ */
+function Stepper(o) {
+  const id = 'f-' + o.field;
+  const fmtV = (v) => v == null ? '' : (o.format ? o.format(v) : (o.decimals != null ? (+v).toFixed(o.decimals) : String(v)));
+  const input = h('input', {
+    class: 'step-input', id, inputmode: o.inputmode || 'decimal', autocomplete: 'off',
+    value: fmtV(o.get()), placeholder: o.placeholder || '–'
+  });
+  const commit = (v) => {
+    if (v != null) {
+      if (o.min != null) v = Math.max(o.min, v);
+      if (o.max != null) v = Math.min(o.max, v);
+    }
+    o.set(v);
+    input.value = fmtV(o.get());
+    if (o.onChange) o.onChange();
+  };
+  input.addEventListener('change', () => {
+    const raw = input.value.trim();
+    commit(raw === '' ? null : (o.parse ? o.parse(raw) : num(raw)));
+  });
+  const bump = (dir) => {
+    const cur = o.get();
+    commit(roundTo((cur == null ? (o.start || 0) : cur) + dir * o.step, o.step));
+  };
+  const btn = (dir, txt) => {
+    const b = h('button', { type: 'button', class: 'step-btn', 'aria-label': (dir < 0 ? 'Decrease ' : 'Increase ') + o.label }, txt);
+    holdRepeat(b, () => bump(dir));
+    return b;
+  };
+  return h('div', { class: 'field stepper' + (o.suggested ? ' is-suggested' : '') },
+    h('label', { class: 'lbl', for: id }, o.label, o.unit ? h('span', { class: 'unit' }, o.unit) : null),
+    h('div', { class: 'step-row' }, btn(-1, '−'), input, btn(1, '+')),
+    o.hint ? h('div', { class: 'hint' }, o.hint) : null);
+}
+
+/** 5-point taste scale; updates in place. */
+function Scale(items, get, set, kind) {
+  const colors = (v) => {
+    if (kind === 'rating') return ['var(--accent)', 'var(--accent-soft)'];
+    if (v === 0) return ['var(--accent)', 'var(--accent-soft)'];
+    if (kind === 'extraction') return v < 0 ? ['var(--sour)', 'var(--sour-soft)'] : ['var(--bitter)', 'var(--bitter-soft)'];
+    return ['var(--tone)', 'var(--tone-soft)'];
+  };
+  const wrap = h('div', { class: 'scale' + (kind === 'rating' ? ' rating' : ''), role: 'radiogroup', 'aria-label': cap(kind) });
+  const sync = () => wrap.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(+b.dataset.v === get())));
+  items.forEach((it) => {
+    const [c, cs] = colors(it.v);
+    const b = h('button', { type: 'button', class: 'scale-btn', role: 'radio', 'data-v': it.v, style: `--c:${c};--cs:${cs}` }, it.short);
+    b.addEventListener('click', () => { set(get() === it.v && kind === 'rating' ? null : it.v); sync(); clearFormError(); });
+    wrap.append(b);
+  });
+  sync();
+  return wrap;
+}
+
+function RoastChip(bean, at) {
+  const n = daysSince(bean.roastDate, at);
+  const txt = n == null ? 'No roast date' : n < 0 ? `Roasts in ${-n} d` : n === 0 ? 'Roasted today' : `${n} d off roast`;
+  return h('span', { class: 'chip chip-roast' }, txt);
+}
+/** Roasted → Started → Finished, with the gaps between them. */
+function BeanTimeline(bean) {
+  const D = beanDates(bean);
+  const finished = bean.status === 'finished';
+  const gap = (a, b) => (a && b) ? daysSince(a, dateTs(b)) : null;
+  const rest = gap(D.roast, D.start);
+  const open = gap(D.start, finished ? D.finished : localDateStr());
+  const offRoast = D.roast ? daysSince(D.roast) : null;
+  const cell = (label, ds, sub) => h('span', { class: 'tl-cell' + (ds ? '' : ' is-empty') },
+    h('span', { class: 'lbl' }, label),
+    h('span', { class: 'tl-date mono' }, ds ? fmtDay(ds) : '—'),
+    sub ? h('span', { class: 'tl-sub' }, sub) : null);
+  return h('span', { class: 'tl', role: 'group', 'aria-label': 'Bean dates' },
+    cell('Roasted', D.roast, !finished && offRoast != null && offRoast >= 0 ? `${offRoast} d off roast` : null),
+    cell('Started', D.start, D.start ? (rest != null && rest >= 0 ? `${rest} d rest` : null) : 'on first brew'),
+    cell('Finished', D.finished, finished
+      ? (open != null && open >= 0 ? `lasted ${open} d` : null)
+      : (open != null && open >= 0 ? `open ${open} d` : null)));
+}
+function tasteChip(kind, v) {
+  if (v == null) return null;
+  const list = kind === 'strength' ? STRENGTH : EXTRACTION;
+  const txt = v === 0 ? `Balanced ${kind}` : list.find((x) => x.v === v).short;
+  const cls = v === 0 ? 'chip-good' : kind === 'extraction' ? (v < 0 ? 'chip-sour' : 'chip-bitter') : 'chip-tone';
+  return h('span', { class: 'chip ' + cls }, txt);
+}
+function paramsLine(b) {
+  const r = ratioOf(b);
+  const rr = r ? `1:${r.toFixed(1)}` : '1:–';
+  const gr = `grind ${fmtNum(b.grind)}`;
+  if (b.method === 'espresso') return `${fmt1(b.dose)} → ${fmt1(b.yield)} g · ${rr} · ${b.time != null ? b.time + ' s' : '– s'} · ${gr}`;
+  return `${fmt1(b.dose)} g / ${fmt0(b.water)} g · ${rr} · ${mmss(b.brewTime)} · ${gr}`;
+}
+function shortRecipe(b) {
+  const r = ratioOf(b);
+  return b.method === 'espresso'
+    ? `${fmt1(b.dose)}→${fmt1(b.yield)} g @ ${fmtNum(b.grind)}`
+    : `1:${r ? r.toFixed(1) : '–'} @ ${fmtNum(b.grind)}`;
+}
+
+function SuggestionCard(s) {
+  if (!s) return null;
+  const warns = s.warnings && s.warnings.length ? h('div', { class: 'warn-list' }, s.warnings.map((w) => h('div', { class: 'warn' }, w))) : null;
+  if (s.dialedIn) {
+    return h('div', { class: 'sug is-dialed' },
+      h('div', { class: 'sug-main' },
+        h('div', { class: 'sug-eyebrow' }, 'Result'),
+        h('h2', { class: 'sug-title' }, 'Dialed in'),
+        h('p', { class: 'sug-reason' }, s.reason)),
+      warns);
+  }
+  return h('div', { class: 'sug' },
+    h('div', { class: 'sug-main' },
+      h('div', { class: 'sug-eyebrow' }, 'Next brew'),
+      h('h2', { class: 'sug-title' }, s.primary.title),
+      h('div', { class: 'sug-detail mono' }, s.primary.detail),
+      h('p', { class: 'sug-reason' }, s.reason)),
+    s.secondary ? h('div', { class: 'sug-alt' },
+      h('span', { class: 'lbl' }, 'Or instead'),
+      h('div', {}, h('b', {}, s.secondary.title), ' ', h('span', { class: 'mono' }, s.secondary.detail))) : null,
+    warns);
+}
+
+function RatingTrend(brews) {
+  const pts = brews.filter((b) => b.taste && b.taste.rating).sort((a, b) => a.ts - b.ts);
+  if (pts.length < 2) return h('p', { class: 'note' }, 'Rate at least two brews to see a trend.');
+  const W = 320, H = 130, pl = 22, pr = 12, pt = 10, pb = 22;
+  const n = pts.length;
+  const x = (i) => pl + (n === 1 ? 0 : i * (W - pl - pr) / (n - 1));
+  const y = (r) => pt + (5 - r) * (H - pt - pb) / 4;
+  let s = '';
+  for (let r = 1; r <= 5; r++) s += `<line class="grid-line" x1="${pl}" x2="${W - pr}" y1="${y(r)}" y2="${y(r)}"/><text class="axis-text" x="${pl - 8}" y="${y(r) + 3}" text-anchor="end">${r}</text>`;
+  const line = pts.map((p, i) => `${x(i).toFixed(1)},${y(p.taste.rating).toFixed(1)}`).join(' ');
+  s += `<polygon class="area" points="${x(0)},${y(1)} ${line} ${x(n - 1)},${y(1)}"/>`;
+  s += `<polyline class="line" points="${line}"/>`;
+  pts.forEach((p, i) => {
+    const last = i === n - 1;
+    s += `<circle class="${p.method === 'espresso' ? 'pt-e' : 'pt-p'}" cx="${x(i)}" cy="${y(p.taste.rating)}" r="${last ? 5.5 : 4}"/>`;
+  });
+  s += `<text class="axis-text" x="${pl}" y="${H - 6}">Brew 1</text><text class="axis-text" x="${W - pr}" y="${H - 6}" text-anchor="end">Brew ${n}</text>`;
+  const box = h('div', { class: 'trend' });
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Overall rating across ${n} brews">${s}</svg>`;
+  const methods = new Set(pts.map((p) => p.method));
+  return h('div', { class: 'stack', style: 'gap:8px' }, box,
+    methods.size > 1 ? h('div', { class: 'legend' },
+      h('span', {}, h('i', { style: 'background:var(--accent)' }), 'Espresso'),
+      h('span', {}, h('i', { style: 'border:2px solid var(--accent);background:var(--surface)' }), 'Pour-over')) : null);
+}
+
+function BrewRow(b, opts = {}) {
+  const open = ui.expandedBrewId === b.id;
+  const bean = beanById(b.beanId);
+  const g = grinderById(b.grinderId), br = brewerById(b.brewerId);
+  const t = b.taste || {};
+  const head = h('button', {
+    class: 'br-head', type: 'button', 'aria-expanded': String(open),
+    onclick: () => { ui.expandedBrewId = open ? null : b.id; render(); }
+  },
+    h('span', { class: 'br-top' },
+      h('span', { class: 'mbadge m-' + b.method }, b.method === 'espresso' ? 'Esp' : 'Pour'),
+      opts.showBean ? h('span', { class: 'br-bean' }, bean ? bean.name : 'Deleted bean') : null,
+      h('span', { class: 'br-date' }, fmtDateTime(b.ts))),
+    h('span', { class: 'br-params mono' }, paramsLine(b)),
+    h('span', { class: 'br-taste' },
+      tasteChip('strength', t.strength), tasteChip('extraction', t.extraction),
+      b.dialedIn ? h('span', { class: 'chip chip-good' }, 'Dialed in') : null,
+      t.rating ? h('span', { class: 'chip mono' }, `${t.rating}/5`) : null));
+  let body = null;
+  if (open) {
+    const rest = bean ? daysSince(bean.roastDate, b.ts) : null;
+    const kv = (k, v) => h('div', {}, h('dt', {}, k), h('dd', {}, v));
+    const s = b.suggestion;
+    body = h('div', { class: 'br-body' },
+      h('dl', { class: 'kv' },
+        kv('Grinder', g ? g.name : '—'),
+        kv(b.method === 'espresso' ? 'Machine' : 'Brewer', br ? br.name : '—'),
+        kv('Water temp', tempLabel(b.tempC)),
+        b.method === 'espresso'
+          ? kv('Pre-infusion', b.preinf ? b.preinf + ' s' : '—')
+          : kv('Bloom', `${fmt0(b.bloomWater)} g · ${b.bloomTime != null ? b.bloomTime + ' s' : '–'}`),
+        kv('Rested', rest != null ? `${rest} d` : '—'),
+        kv('Rating', t.rating ? `${t.rating}/5` : '—')),
+      t.notes ? h('p', { class: 'quote' }, t.notes) : null,
+      b.notes ? h('p', { class: 'small muted', style: 'margin:0' }, 'Brew notes: ' + b.notes) : null,
+      s ? h('div', { class: 'small' }, s.dialedIn ? 'Result: dialed in.' : h('span', {}, 'Suggested next: ', h('b', {}, s.primary.title), ' ', h('span', { class: 'mono' }, s.primary.detail))) : null,
+      h('div', { class: 'row-actions' },
+        h('button', { class: 'btn btn-secondary btn-sm', type: 'button', onclick: () => editBrew(b.id) }, 'Edit'),
+        h('button', { class: 'btn btn-danger-ghost btn-sm', type: 'button', onclick: () => deleteBrew(b.id) }, 'Delete')));
+  }
+  return h('article', { class: 'brew-row' + (open ? ' open' : '') }, head, body);
+}
+
+/* =====================================================================
+   6. VIEWS
+   ===================================================================== */
+const VIEWS = { brew: viewBrew, beans: viewBeans, history: viewHistory, tracker: viewTracker, settings: viewSettings };
+
+function render() {
+  const main = document.getElementById('view');
+  main.replaceChildren(VIEWS[ui.tab]());
+  document.querySelectorAll('.tab').forEach((t) => {
+    if (t.dataset.tab === ui.tab) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+  });
+  renderStatus();
+  if (ui.tab === 'brew') refreshDerived();
+  if (ui.tab === 'tracker') drawTrackerChart();
+  try { localStorage.setItem(LS_PREFIX + 'tab', ui.tab); } catch (e) { /* ignore */ }
+}
+function renderStatus() {
+  const el = document.getElementById('status');
+  if (!el) return;
+  const bad = Store.backend === 'memory' || !ui.saveOk;
+  el.className = 'status' + (bad ? ' is-warn' : '');
+  el.replaceChildren(h('i'), bad ? 'Not saving' : 'Saved on this device');
+}
+function goTab(tab) {
+  if (tab === 'beans' && ui.tab === 'beans') ui.beanDetailId = null;
+  ui.tab = tab;
+  window.scrollTo(0, 0);
+  render();
+}
+
+/* ---------- Brew (home) ---------- */
+function viewWelcome() {
+  return h('div', { class: 'stack' },
+    h('div', { class: 'card welcome' },
+      h('h1', {}, 'Log a brew. Get the next adjustment.'),
+      h('p', {}, 'Rate each shot or pour-over on strength and extraction. The app suggests one change for next time, sized to how far off it was, and remembers your best recipe per bean.'),
+      h('div', { class: 'compass' },
+        h('div', {}, h('b', {}, 'Sour + weak'), 'Grind finer'),
+        h('div', {}, h('b', {}, 'Sour + strong'), 'Longer ratio'),
+        h('div', {}, h('b', {}, 'Bitter + weak'), 'Shorter ratio'),
+        h('div', {}, h('b', {}, 'Bitter + strong'), 'Grind coarser')),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn btn-primary', type: 'button', onclick: startOwn }, 'Start with my own'),
+        h('button', { class: 'btn btn-secondary', type: 'button', onclick: loadSampleData }, 'Load example data')),
+      h('p', { class: 'small' }, 'Example data is labeled and can be removed in Settings.')));
+}
+async function startOwn() {
+  state.settings.onboarded = true;
+  await persist('settings');
+  goTab('settings');
+  toast('Add your grinder and brewers, then a bean.');
+}
+
+function viewBrew() {
+  const noData = !state.beans.length && !state.brews.length;
+  if (noData && !state.settings.onboarded) return viewWelcome();
+  if (ui.result) return viewResult();
+
+  const activeBeans = state.beans.filter((b) => b.status !== 'finished');
+  if (!ui.draft) {
+    if (!activeBeans.length) {
+      return h('div', { class: 'stack' },
+        h('h1', { class: 'page-title' }, 'New brew'),
+        h('div', { class: 'empty' },
+          h('p', { style: 'margin:0 0 12px' }, state.beans.length ? 'All your beans are marked finished.' : 'Add a bean to start logging brews.'),
+          h('button', { class: 'btn btn-primary', type: 'button', onclick: () => openBeanForm(null, (nb) => { ui.draft = buildDraft(state.settings.lastMethod || 'espresso', nb.id); }) }, 'Add a bean')));
+    }
+    ui.draft = buildDraft(state.settings.lastMethod || 'espresso', defaultBeanId());
+  }
+
+  const d = ui.draft;
+  const editing = !!ui.editingId;
+  const g = grinderById(d.grinderId);
+  const gstep = g && g.step > 0 ? g.step : 1;
+  const mName = METHOD_LABEL[d.method].toLowerCase();
+  const out = h('div', { class: 'stack' });
+
+  if (editing) {
+    out.append(h('div', { class: 'edit-banner' },
+      h('span', {}, 'Editing a saved brew'),
+      h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { ui.editingId = null; ui.draft = null; goTab('history'); } }, 'Cancel')));
+  } else {
+    out.append(h('h1', { class: 'page-title' }, 'New brew'));
+  }
+
+  out.append(Seg([{ value: 'espresso', label: 'Espresso' }, { value: 'pourover', label: 'Pour-over' }], d.method, (v) => {
+    if (v === d.method) return;
+    state.settings.lastMethod = v;
+    persistSettingsSoon();
+    ui.draft = buildDraft(v, d.beanId);
+    render();
+  }, { label: 'Brew method', cls: 'seg-lg', disabled: editing }));
+
+  // Bean picker
+  const bean = beanById(d.beanId);
+  const beanOpts = state.beans.filter((b) => b.status !== 'finished' || b.id === d.beanId)
+    .map((b) => ({ value: b.id, label: b.name + (b.roaster ? ' · ' + b.roaster : '') }));
+  out.append(h('div', { class: 'field' },
+    h('div', { class: 'lbl-row' },
+      h('label', { class: 'lbl', for: 'f-bean' }, 'Bean'),
+      editing ? null : h('button', { class: 'link-btn', type: 'button', onclick: () => openBeanForm(null, (nb) => { ui.draft = buildDraft(d.method, nb.id); }) }, '+ New bean')),
+    Select('f-bean', beanOpts, d.beanId, (v) => {
+      if (editing) { d.beanId = v; render(); return; }
+      ui.draft = buildDraft(d.method, v);
+      render();
+    }, 'Bean'),
+    bean ? h('div', { class: 'bean-meta' }, RoastChip(bean), h('span', { class: 'chip' }, cap(bean.process)), h('span', { class: 'chip' }, cap(bean.roast) + ' roast')) : null));
+
+  if (!editing) {
+    let note;
+    if (d.base && d.base.type === 'same') {
+      note = `Pre-filled from your last ${mName} with this bean (${fmtDate(d.base.ts)}).` + (d.base.dialedIn ? ' It was dialed in, so the recipe is unchanged.' : '');
+    } else if (d.base && d.base.type === 'other') {
+      note = `First ${mName} with this bean. Pre-filled from your last ${mName} (${d.base.beanName}).`;
+    } else {
+      note = `Starting from your default ${mName} recipe.`;
+    }
+    out.append(h('p', { class: 'note' }, note));
+    if (d.highlight) {
+      out.append(h('div', { class: 'applied' },
+        h('div', { class: 'applied-eyebrow' }, 'Suggested change applied'),
+        h('div', { class: 'applied-title' }, d.highlight.title),
+        h('div', { class: 'applied-detail mono' }, d.highlight.detail)));
+    }
+  }
+
+  // Equipment
+  const grOpts = [{ value: '', label: state.grinders.length ? 'No grinder' : 'No grinders yet' }, ...state.grinders.map((x) => ({ value: x.id, label: x.name }))];
+  const brOpts = [{ value: '', label: 'None' }, ...state.brewers.filter((x) => x.type === d.method).map((x) => ({ value: x.id, label: x.name }))];
+  out.append(h('div', { class: 'grid2' },
+    Field('Grinder', Select('f-grinder', grOpts, d.grinderId || '', (v) => { d.grinderId = v || null; render(); }, 'Grinder'), 'f-grinder'),
+    Field(d.method === 'espresso' ? 'Machine' : 'Brewer', Select('f-brewer', brOpts, d.brewerId || '', (v) => { d.brewerId = v || null; }, 'Brewer'), 'f-brewer')));
+  if (!state.grinders.length) out.append(h('p', { class: 'note' }, 'Add your grinder in Settings so grind suggestions use its real step size.'));
+
+  // Recipe
+  const sug = (f) => !editing && d.highlight && d.highlight.field === f;
+  const S = (field, label, unit, step, decimals, extra = {}) => Stepper(Object.assign({
+    field, label, unit, step, decimals, min: 0,
+    get: () => d[field], set: (v) => { d[field] = v; }, onChange: refreshDerived, suggested: sug(field)
+  }, extra));
+  const tempStep = tUnit() === 'F' ? 1 : 0.5;
+  const temp = Stepper({
+    field: 'temp', label: 'Water temp', unit: '°' + tUnit(), step: tempStep, decimals: tUnit() === 'F' ? 0 : 1,
+    get: () => tempToDisplay(d.tempC), set: (v) => { d.tempC = v == null ? null : tempFromDisplay(v); },
+    onChange: refreshDerived, suggested: sug('tempC')
+  });
+  const grind = S('grind', 'Grind', '', gstep, decimalsOf(gstep), { hint: g ? `Step ${g.step} · ${g.finerIsLower !== false ? 'lower = finer' : 'higher = finer'}` : 'Step 1' });
+
+  let steppers;
+  if (d.method === 'espresso') {
+    steppers = [grind, S('dose', 'Dose', 'g', 0.1, 1), S('yield', 'Yield', 'g', 0.5, 1), S('time', 'Shot time', 's', 1, 0),
+      temp, S('preinf', 'Pre-infusion', 's', 1, 0, { hint: '0 = none' })];
+  } else {
+    steppers = [grind, S('dose', 'Dose', 'g', 0.1, 1), S('water', 'Total water', 'g', 5, 0), temp,
+      S('bloomWater', 'Bloom water', 'g', 5, 0), S('bloomTime', 'Bloom time', 's', 5, 0),
+      S('brewTime', 'Total time', 'm:ss', 5, null, { format: mmss, parse: parseMmss, inputmode: 'text' })];
+  }
+  out.append(h('section', { class: 'stack', style: 'gap:12px' },
+    h('h2', { class: 'sec-title' }, 'Recipe'),
+    h('div', { class: 'readout', id: 'readout' }),
+    h('div', { class: 'grid2 grid3' }, steppers),
+    h('div', { class: 'warn-list', id: 'live-warn' })));
+
+  // Taste
+  out.append(h('section', { class: 'stack', style: 'gap:14px' },
+    h('h2', { class: 'sec-title' }, 'Taste'),
+    h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'Strength'),
+      Scale(STRENGTH, () => d.taste.strength, (v) => { d.taste.strength = v; }, 'strength'),
+      h('div', { class: 'scale-ends' }, h('span', {}, 'Thin, watery'), h('span', {}, 'Heavy, intense'))),
+    h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'Extraction'),
+      Scale(EXTRACTION, () => d.taste.extraction, (v) => { d.taste.extraction = v; }, 'extraction'),
+      h('div', { class: 'scale-ends' }, h('span', {}, 'Sharp, sour, salty'), h('span', {}, 'Dry, harsh, bitter'))),
+    h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'Overall'),
+      Scale([1, 2, 3, 4, 5].map((v) => ({ v, short: String(v) })), () => d.taste.rating, (v) => { d.taste.rating = v; }, 'rating')),
+    Field('Tasting notes', h('textarea', { id: 'f-tnotes', rows: 2, placeholder: 'e.g. blueberry, cocoa, short finish', value: d.taste.notes || '', oninput: (e) => { d.taste.notes = e.target.value; } }), 'f-tnotes'),
+    Field('Brew notes', h('textarea', { id: 'f-notes', rows: 2, placeholder: 'Puck prep, pour pattern, anything you changed', value: d.notes || '', oninput: (e) => { d.notes = e.target.value; } }), 'f-notes'),
+    editing ? Field('Brewed at', h('input', { class: 'input', id: 'f-ts', type: 'datetime-local', value: toLocalInput(d.ts), onchange: (e) => { const t = new Date(e.target.value).getTime(); if (Number.isFinite(t)) d.ts = t; } }), 'f-ts') : null));
+
+  out.append(h('div', { class: 'form-err', id: 'form-err', role: 'alert' }),
+    h('button', { class: 'btn btn-primary btn-block', type: 'button', onclick: saveDraft }, editing ? 'Save changes' : 'Save & get suggestion'));
+  return out;
+}
+
+/** Updates the ratio readout and live sanity warnings without re-rendering. */
+function refreshDerived() {
+  const d = ui.draft;
+  if (!d) return;
+  const ro = document.getElementById('readout');
+  if (ro) {
+    const r = ratioOf(d);
+    ro.replaceChildren(
+      h('span', { class: 'ro-label' }, 'Ratio'),
+      h('span', { class: 'ro-val mono' }, r ? `1:${r.toFixed(1)}` : '1:–'),
+      h('span', { class: 'ro-sub mono' }, d.method === 'espresso'
+        ? `${fmt1(d.dose)} g in · ${fmt1(d.yield)} g out`
+        : `${fmt1(d.dose)} g coffee · ${fmt0(d.water)} g water`));
+  }
+  const lw = document.getElementById('live-warn');
+  if (lw) lw.replaceChildren(...sanityChecks(d).map((w) => h('div', { class: 'warn' }, w)));
+}
+function clearFormError() {
+  const el = document.getElementById('form-err');
+  if (el) el.textContent = '';
+}
+
+async function saveDraft() {
+  const d = ui.draft;
+  const errs = [];
+  if (!beanById(d.beanId)) errs.push('Pick a bean.');
+  if (!(d.dose > 0)) errs.push('Enter a dose.');
+  if (d.method === 'espresso' && !(d.yield > 0)) errs.push('Enter the yield.');
+  if (d.method === 'pourover' && !(d.water > 0)) errs.push('Enter the total water.');
+  if (d.taste.strength == null || d.taste.extraction == null) errs.push('Rate strength and extraction to get a suggestion.');
+  if (errs.length) {
+    const el = document.getElementById('form-err');
+    if (el) { el.textContent = errs.join(' '); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    return;
+  }
+
+  const now = Date.now();
+  const existing = ui.editingId ? state.brews.find((b) => b.id === ui.editingId) : null;
+  const rec = {
+    id: existing ? existing.id : uid(),
+    ts: existing ? (d.ts || existing.ts) : now,
+    method: d.method, beanId: d.beanId, grinderId: d.grinderId || null, brewerId: d.brewerId || null,
+    grind: d.grind, dose: d.dose, tempC: d.tempC, notes: (d.notes || '').trim(),
+    taste: { strength: d.taste.strength, extraction: d.taste.extraction, rating: d.taste.rating, notes: (d.taste.notes || '').trim() },
+    updatedAt: now
+  };
+  for (const f of FIELDS[d.method]) rec[f] = d[f] == null ? null : d[f];
+  if (existing && existing.sample) rec.sample = true;
+  rec.suggestion = suggest(rec);
+  rec.dialedIn = !!(rec.suggestion && rec.suggestion.dialedIn);
+
+  if (existing) state.brews[state.brews.indexOf(existing)] = rec;
+  else state.brews.push(rec);
+  if (rec.grinderId) state.settings.lastGrinderId = rec.grinderId;
+  state.settings.lastMethod = rec.method;
+  // First brew with a bean sets its Started date (if not already entered).
+  const brewBean = beanById(rec.beanId);
+  const beanChanged = !!(brewBean && !brewBean.startDate);
+  if (beanChanged) {
+    brewBean.startDate = firstBrewDate(brewBean.id);
+    brewBean.updatedAt = now;
+  }
+  await persist('brews', 'settings', ...(beanChanged ? ['beans'] : []));
+
+  if (existing) {
+    ui.editingId = null;
+    ui.draft = null;
+    ui.expandedBrewId = rec.id;
+    goTab('history');
+    toast('Brew updated. Suggestion recalculated.');
+  } else {
+    ui.result = rec.id;
+    ui.draft = null;
+    window.scrollTo(0, 0);
+    render();
+  }
+}
+
+function viewResult() {
+  const b = state.brews.find((x) => x.id === ui.result);
+  if (!b) { ui.result = null; return viewBrew(); }
+  const bean = beanById(b.beanId);
+  const t = b.taste || {};
+  return h('div', { class: 'stack' },
+    h('h1', { class: 'page-title' }, 'Saved'),
+    h('div', { class: 'card saved-line' },
+      h('div', { class: 'br-top' },
+        h('span', { class: 'mbadge m-' + b.method }, b.method === 'espresso' ? 'Esp' : 'Pour'),
+        h('span', { class: 'br-bean' }, bean ? bean.name : ''),
+        bean ? RoastChip(bean) : null),
+      h('div', { class: 'mono small' }, paramsLine(b)),
+      h('div', { class: 'chips' }, tasteChip('strength', t.strength), tasteChip('extraction', t.extraction), t.rating ? h('span', { class: 'chip mono' }, `${t.rating}/5`) : null)),
+    SuggestionCard(b.suggestion),
+    h('button', {
+      class: 'btn btn-primary btn-block', type: 'button',
+      onclick: () => { ui.result = null; ui.draft = buildDraft(b.method, b.beanId); window.scrollTo(0, 0); render(); }
+    }, b.dialedIn ? 'Brew it again' : 'Start next brew with this change'),
+    h('div', { class: 'btn-row' },
+      h('button', { class: 'btn btn-secondary', type: 'button', onclick: () => { ui.result = null; ui.beanDetailId = b.beanId; goTab('beans'); } }, 'View bean'),
+      h('button', { class: 'btn btn-secondary', type: 'button', onclick: () => editBrew(b.id) }, 'Edit this brew')));
+}
+
+function editBrew(id) {
+  const b = state.brews.find((x) => x.id === id);
+  if (!b) return;
+  ui.editingId = id;
+  ui.draft = draftFromBrew(b);
+  ui.result = null;
+  goTab('brew');
+}
+async function deleteBrew(id) {
+  const b = state.brews.find((x) => x.id === id);
+  if (!b) return;
+  const bean = beanById(b.beanId);
+  const ok = await confirmDialog(`Delete the ${METHOD_LABEL[b.method].toLowerCase()} from ${fmtDateTime(b.ts)}${bean ? ' (' + bean.name + ')' : ''}? This can't be undone.`, 'Delete brew');
+  if (!ok) return;
+  state.brews = state.brews.filter((x) => x.id !== id);
+  if (ui.result === id) ui.result = null;
+  await persist('brews');
+  render();
+  toast('Brew deleted.');
+}
+
+/* ---------- Beans ---------- */
+function BeanCard(b) {
+  const n = brewsFor(b.id).length;
+  const be = bestBrew(b.id, 'espresso'), bp = bestBrew(b.id, 'pourover');
+  const best = [be && 'Best espresso ' + shortRecipe(be), bp && 'Best pour-over ' + shortRecipe(bp)].filter(Boolean).join(' · ');
+  return h('button', {
+    type: 'button', class: 'bean-card' + (b.status === 'finished' ? ' is-finished' : ''),
+    onclick: () => { ui.beanDetailId = b.id; window.scrollTo(0, 0); render(); }
+  },
+    h('span', { class: 'bc-top' }, h('span', { class: 'bc-name' }, b.name)),
+    h('span', { class: 'bc-sub' }, [b.roaster, b.origin].filter(Boolean).join(' · ') || 'No roaster or origin'),
+    BeanTimeline(b),
+    h('span', { class: 'bc-chips' },
+      h('span', { class: 'chip' }, cap(b.process)), h('span', { class: 'chip' }, cap(b.roast)),
+      h('span', { class: 'chip' }, `${n} brew${n === 1 ? '' : 's'}`),
+      b.sample ? h('span', { class: 'chip chip-tone' }, 'Example') : null),
+    best ? h('span', { class: 'bc-best mono' }, best) : null);
+}
+
+function viewBeans() {
+  if (ui.beanDetailId && beanById(ui.beanDetailId)) return viewBeanDetail(beanById(ui.beanDetailId));
+  ui.beanDetailId = null;
+  const active = state.beans.filter((b) => b.status !== 'finished').sort((a, b) => (b.roastDate || '').localeCompare(a.roastDate || ''));
+  const done = state.beans.filter((b) => b.status === 'finished')
+    .sort((a, b) => (b.finishedDate || '').localeCompare(a.finishedDate || '') || (b.updatedAt || 0) - (a.updatedAt || 0));
+  return h('div', { class: 'stack' },
+    h('div', { class: 'title-row' },
+      h('h1', { class: 'page-title' }, 'Beans'),
+      h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => openBeanForm(null) }, 'Add bean')),
+    !state.beans.length ? h('div', { class: 'empty' }, 'No beans yet. Add the bag you are brewing now.') : null,
+    active.length ? h('div', { class: 'group-label' }, `Active · ${active.length}`) : null,
+    active.length ? h('div', { class: 'bean-list' }, active.map(BeanCard)) : null,
+    done.length ? h('div', { class: 'group-label' }, `Finished · ${done.length}`) : null,
+    done.length ? h('div', { class: 'bean-list' }, done.map(BeanCard)) : null);
+}
+
+function viewBeanDetail(bean) {
+  const brews = brewsFor(bean.id);
+  const bests = ['espresso', 'pourover'].map((m) => bestBrew(bean.id, m)).filter(Boolean);
+  const finished = bean.status === 'finished';
+  return h('div', { class: 'stack' },
+    h('button', { class: 'link-btn back', type: 'button', onclick: () => { ui.beanDetailId = null; render(); } }, '← All beans'),
+    h('div', { class: 'detail-head' },
+      h('h1', { class: 'page-title' }, bean.name),
+      h('div', { class: 'muted' }, [bean.roaster, bean.origin].filter(Boolean).join(' · ')),
+      BeanTimeline(bean),
+      h('div', { class: 'chips' }, h('span', { class: 'chip' }, cap(bean.process)), h('span', { class: 'chip' }, cap(bean.roast) + ' roast'),
+        bean.bagWeight ? h('span', { class: 'chip mono' }, `${bean.bagWeight} g bag`) : null,
+        finished ? h('span', { class: 'chip chip-tone' }, 'Finished') : null,
+        bean.sample ? h('span', { class: 'chip chip-tone' }, 'Example') : null),
+      bean.notes ? h('p', { class: 'note' }, bean.notes) : null),
+    h('div', { class: 'btn-row' },
+      h('button', {
+        class: 'btn btn-primary', type: 'button',
+        onclick: () => { ui.result = null; ui.editingId = null; ui.draft = buildDraft(state.settings.lastMethod || 'espresso', bean.id); goTab('brew'); }
+      }, 'Brew this bean'),
+      h('button', { class: 'btn btn-secondary', type: 'button', onclick: () => openBeanForm(bean) }, 'Edit'),
+      h('button', { class: 'btn btn-secondary', type: 'button', onclick: () => toggleFinished(bean) }, finished ? 'Mark active' : 'Mark finished')),
+    h('section', { class: 'card' },
+      h('h2', { class: 'sec-title' }, 'Best recipe'),
+      bests.length ? bests.map((b) => h('div', { class: 'best' },
+        h('div', { class: 'best-eyebrow' }, `${METHOD_LABEL[b.method]} · dialed in ${fmtDate(b.ts)}`),
+        h('div', { class: 'best-main mono' }, paramsLine(b)),
+        h('div', { class: 'small muted' }, [grinderById(b.grinderId) && grinderById(b.grinderId).name, brewerById(b.brewerId) && brewerById(b.brewerId).name, tempLabel(b.tempC)].filter(Boolean).join(' · ')),
+        b.taste.notes ? h('div', { class: 'small' }, b.taste.notes) : null))
+        : h('p', { class: 'note' }, 'None yet. A brew rated balanced on both strength and extraction becomes the best recipe.')),
+    h('section', { class: 'card' },
+      h('h2', { class: 'sec-title' }, 'Rating over brews'),
+      RatingTrend(brews)),
+    h('section', { class: 'stack', style: 'gap:10px' },
+      h('h2', { class: 'sec-title' }, `Brews · ${brews.length}`),
+      brews.length ? h('div', { class: 'brew-list' }, brews.map((b) => BrewRow(b))) : h('div', { class: 'empty' }, 'No brews with this bean yet.')),
+    h('button', { class: 'btn btn-danger-ghost', type: 'button', onclick: () => deleteBean(bean) }, 'Delete bean'));
+}
+
+async function toggleFinished(bean) {
+  bean.status = bean.status === 'finished' ? 'active' : 'finished';
+  if (bean.status === 'finished') {
+    if (!bean.finishedDate) bean.finishedDate = localDateStr();
+    if (!bean.startDate) bean.startDate = firstBrewDate(bean.id);
+  } else {
+    bean.finishedDate = null;
+  }
+  bean.updatedAt = Date.now();
+  if (ui.draft && ui.draft.beanId === bean.id && bean.status === 'finished' && !ui.editingId) ui.draft = null;
+  await persist('beans');
+  render();
+}
+async function deleteBean(bean) {
+  const n = brewsFor(bean.id).length;
+  const ok = await confirmDialog(`Delete "${bean.name}"${n ? ` and its ${n} brew${n === 1 ? '' : 's'}` : ''}? This can't be undone. Mark it finished instead to keep the history.`, 'Delete bean');
+  if (!ok) return;
+  state.beans = state.beans.filter((b) => b.id !== bean.id);
+  state.brews = state.brews.filter((b) => b.beanId !== bean.id);
+  if (ui.draft && ui.draft.beanId === bean.id) { ui.draft = null; ui.editingId = null; }
+  ui.result = null;
+  ui.beanDetailId = null;
+  await persist('beans', 'brews');
+  render();
+  toast('Bean deleted.');
+}
+
+function openBeanForm(bean, after) {
+  const isNew = !bean;
+  const f = bean ? clone(bean) : {
+    name: '', roaster: '', origin: '', process: 'washed', roast: 'light',
+    roastDate: localDateStr(), bagWeight: null, notes: '', status: 'active'
+  };
+  const txt = (id, label, key, ph) => Field(label, h('input', { class: 'input', id, value: f[key] || '', placeholder: ph || '', oninput: (e) => { f[key] = e.target.value; } }), id);
+  const err = h('div', { class: 'form-err', role: 'alert' });
+  // Finished date and status stay in sync in both directions.
+  const finInput = h('input', { class: 'input', id: 'b-fin', type: 'date', value: f.finishedDate || '' });
+  const statusSeg = SegLive([{ value: 'active', label: 'Active' }, { value: 'finished', label: 'Finished' }], () => f.status, (v) => {
+    f.status = v;
+    if (v === 'finished' && !f.finishedDate) f.finishedDate = localDateStr();
+    if (v === 'active') f.finishedDate = null;
+    finInput.value = f.finishedDate || '';
+  }, 'Status');
+  finInput.addEventListener('change', () => {
+    f.finishedDate = finInput.value || null;
+    f.status = f.finishedDate ? 'finished' : 'active';
+    statusSeg.sync();
+  });
+  const startHint = !f.startDate && !isNew && firstBrewDate(f.id) ? `Blank uses your first brew (${fmtDay(firstBrewDate(f.id))})` : 'Fills in on your first brew';
+  const body = [
+    txt('b-name', 'Name', 'name', 'e.g. Ethiopia Guji Hambela'),
+    h('div', { class: 'grid2' }, txt('b-roaster', 'Roaster', 'roaster'), txt('b-origin', 'Origin', 'origin')),
+    h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'Process'),
+      SegLive(['washed', 'natural', 'honey', 'other'].map((v) => ({ value: v, label: cap(v) })), () => f.process, (v) => { f.process = v; }, 'Process')),
+    h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'Roast level'),
+      SegLive(['light', 'medium', 'dark'].map((v) => ({ value: v, label: cap(v) })), () => f.roast, (v) => { f.roast = v; }, 'Roast level')),
+    h('div', { class: 'grid2' },
+      Field('Roast date', h('input', { class: 'input', id: 'b-date', type: 'date', value: f.roastDate || '', onchange: (e) => { f.roastDate = e.target.value; } }), 'b-date'),
+      Field('Started', h('input', { class: 'input', id: 'b-start', type: 'date', value: f.startDate || '', onchange: (e) => { f.startDate = e.target.value || null; } }), 'b-start', startHint)),
+    h('div', { class: 'grid2' },
+      isNew ? null : Field('Finished', finInput, 'b-fin', 'Set when you mark it finished'),
+      Field('Bag weight (g)', h('input', { class: 'input', id: 'b-bag', inputmode: 'decimal', placeholder: 'Optional', value: f.bagWeight != null ? String(f.bagWeight) : '', oninput: (e) => { f.bagWeight = num(e.target.value); } }), 'b-bag')),
+    Field('Notes', h('textarea', { id: 'b-notes', rows: 2, value: f.notes || '', oninput: (e) => { f.notes = e.target.value; } }), 'b-notes'),
+    isNew ? null : h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'Status'), statusSeg),
+    err
+  ];
+  const save = async () => {
+    f.name = (f.name || '').trim();
+    if (!f.name) { err.textContent = 'Give the bean a name.'; return; }
+    if (f.startDate && f.roastDate && f.startDate < f.roastDate) { err.textContent = 'Started is before the roast date. Check both dates.'; return; }
+    const earliest = f.startDate || f.roastDate;
+    if (f.finishedDate && earliest && f.finishedDate < earliest) { err.textContent = `Finished is before the ${f.startDate ? 'started' : 'roast'} date. Check both dates.`; return; }
+    f.updatedAt = Date.now();
+    if (isNew) { f.id = uid(); f.createdAt = f.updatedAt; state.beans.push(f); }
+    else { const i = state.beans.findIndex((b) => b.id === f.id); if (i >= 0) state.beans[i] = f; }
+    await persist('beans');
+    closeSheet(true);
+    if (after) after(f);
+    render();
+    toast(isNew ? 'Bean added.' : 'Bean updated.');
+  };
+  openSheet(isNew ? 'Add bean' : 'Edit bean', body, [
+    h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => closeSheet() }, 'Cancel'),
+    h('button', { class: 'btn btn-primary', type: 'button', onclick: save }, isNew ? 'Add bean' : 'Save')
+  ]);
+}
+
+/* ---------- History ---------- */
+function viewHistory() {
+  const f = ui.hf;
+  if (f.beanId !== 'all' && !beanById(f.beanId)) f.beanId = 'all';
+  let list = state.brews.slice().sort((a, b) => b.ts - a.ts);
+  if (f.method !== 'all') list = list.filter((b) => b.method === f.method);
+  if (f.beanId !== 'all') list = list.filter((b) => b.beanId === f.beanId);
+  return h('div', { class: 'stack' },
+    h('h1', { class: 'page-title' }, 'History'),
+    h('div', { class: 'filters' },
+      Seg([{ value: 'all', label: 'All' }, { value: 'espresso', label: 'Espresso' }, { value: 'pourover', label: 'Pour-over' }], f.method, (v) => { f.method = v; render(); }, { label: 'Method' }),
+      Select('hf-bean', [{ value: 'all', label: 'All beans' }, ...state.beans.map((b) => ({ value: b.id, label: b.name + (b.status === 'finished' ? ' (finished)' : '') }))], f.beanId, (v) => { f.beanId = v; render(); }, 'Bean')),
+    h('div', { class: 'note' }, `${list.length} brew${list.length === 1 ? '' : 's'}`),
+    list.length
+      ? h('div', { class: 'brew-list' }, list.map((b) => BrewRow(b, { showBean: true })))
+      : h('div', { class: 'empty' }, state.brews.length ? 'No brews match these filters.' : 'No brews yet. Log one from the Brew tab.'));
+}
+
+/* ---------- Tracker ----------
+   Two measures, switched by ui.tr.measure:
+     'beans'  = sum of doses (grams of ground coffee)
+     'volume' = coffee made (ml, 1 g ≈ 1 ml): espresso = yield;
+                pour-over = water − grounds retention (estimate, see below)
+   4 wk / 12 wk are bucketed by week (Monday start); 1 yr / All by month.
+   "All" falls back to weeks when your history is shorter than 12 weeks. */
+const DAY_MS = 86400000;
+const POUROVER_RETENTION_G_PER_G = 2; // water held back by each gram of grounds
+function beanGrams(b) { return b.dose > 0 ? b.dose : 0; }
+function beverageMl(b) {
+  if (b.method === 'espresso') return b.yield > 0 ? b.yield : 0;
+  return b.water > 0 ? Math.max(0, b.water - POUROVER_RETENTION_G_PER_G * beanGrams(b)) : 0;
+}
+function fmtMl(v) {
+  if (v == null) return '–';
+  return v >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 1 : 2)} L` : `${Math.round(v)} ml`;
+}
+const isVolume = () => ui.tr.measure === 'volume';
+const amt = (o) => isVolume() ? o.v : o.g;          // o = {n, g, v}
+const fmtAmt = (x) => isVolume() ? fmtMl(x) : fmtG(x);
+function startOfWeek(ts) {
+  const d = new Date(ts); d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+function startOfMonth(ts) { const d = new Date(ts); return new Date(d.getFullYear(), d.getMonth(), 1).getTime(); }
+function addPeriod(ts, unit, n = 1) {
+  const d = new Date(ts);
+  if (unit === 'week') d.setDate(d.getDate() + 7 * n); else d.setMonth(d.getMonth() + n);
+  return d.getTime();
+}
+function fmtG(g) {
+  if (g == null) return '–';
+  return g >= 1000 ? `${(g / 1000).toFixed(g >= 10000 ? 1 : 2)} kg` : `${Math.round(g)} g`;
+}
+function periodLabel(ts, unit, long) {
+  const d = new Date(ts);
+  if (unit === 'week') return (long ? 'Week of ' : '') + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(undefined, long ? { month: 'long', year: 'numeric' } : { month: 'short' });
+}
+
+function trackerData() {
+  const now = Date.now();
+  const range = ui.tr.range;
+  const sorted = state.brews.slice().sort((a, b) => a.ts - b.ts);
+  const first = sorted.length ? sorted[0].ts : now;
+  let unit, start;
+  if (range === '4w') { unit = 'week'; start = addPeriod(startOfWeek(now), 'week', -3); }
+  else if (range === '12w') { unit = 'week'; start = addPeriod(startOfWeek(now), 'week', -11); }
+  else if (range === '1y') { unit = 'month'; start = addPeriod(startOfMonth(now), 'month', -11); }
+  else if (now - first < 84 * DAY_MS) { unit = 'week'; start = startOfWeek(first); }
+  else { unit = 'month'; start = startOfMonth(first); }
+
+  const buckets = [];
+  for (let t = start; t <= now; t = addPeriod(t, unit)) {
+    buckets.push({ start: t, end: addPeriod(t, unit), esp: { n: 0, g: 0, v: 0 }, po: { n: 0, g: 0, v: 0 } });
+  }
+  const tot = { esp: { n: 0, g: 0, v: 0 }, po: { n: 0, g: 0, v: 0 } };
+  const inRange = sorted.filter((b) => b.ts >= start && b.ts <= now);
+  for (const b of inRange) {
+    const k = b.method === 'espresso' ? 'esp' : 'po';
+    const bk = buckets.find((x) => b.ts >= x.start && b.ts < x.end);
+    const g = beanGrams(b), v = beverageMl(b);
+    for (const o of bk ? [bk[k], tot[k]] : [tot[k]]) { o.n++; o.g += g; o.v += v; }
+  }
+  // Average over the days you have actually been logging within the range.
+  const days = Math.max(1, Math.ceil((now - Math.max(start, first)) / DAY_MS));
+  return { unit, start, buckets, inRange, tot, days };
+}
+
+function SplitRow(label, a, b, fmt) {
+  const total = a + b;
+  const pa = total ? Math.round((a / total) * 100) : 0;
+  const pb = total ? 100 - pa : 0;
+  return h('div', { class: 'split-row' },
+    h('span', { class: 'lbl' }, label),
+    h('div', { class: 'split-bar', role: 'img', 'aria-label': `${label}: espresso ${pa}%, pour-over ${pb}%` },
+      a > 0 ? h('span', { class: 'sw-esp', style: `flex:${a} 1 0` }) : null,
+      b > 0 ? h('span', { class: 'sw-po', style: `flex:${b} 1 0` }) : null),
+    h('div', { class: 'split-legend' },
+      h('span', {}, h('i', { class: 'sw sw-esp' }), `Espresso ${pa}% · ${fmt(a)}`),
+      h('span', {}, `${fmt(b)} · ${pb}% Pour-over`, h('i', { class: 'sw sw-po' }))));
+}
+
+function viewTracker() {
+  const T = trackerData();
+  ui.trData = T;
+  const out = h('div', { class: 'stack' },
+    h('h1', { class: 'page-title' }, 'Tracker'),
+    Seg([{ value: '4w', label: '4 wk' }, { value: '12w', label: '12 wk' }, { value: '1y', label: '1 yr' }, { value: 'all', label: 'All' }],
+      ui.tr.range, (v) => { ui.tr.range = v; render(); }, { label: 'Time range' }),
+    Seg([{ value: 'beans', label: 'Beans used' }, { value: 'volume', label: 'Coffee made' }],
+      ui.tr.measure, (v) => { ui.tr.measure = v; render(); }, { label: 'Measure' }),
+    isVolume() ? h('p', { class: 'note' }, `Coffee made is in ml (1 g ≈ 1 ml). Espresso counts the yield. Pour-over is an estimate: total water minus about ${POUROVER_RETENTION_G_PER_G} g held back per gram of grounds.`) : null);
+
+  if (!state.brews.length) {
+    out.append(h('div', { class: 'empty' }, 'No brews yet. Your totals and split will appear here once you log a few.'));
+    return out;
+  }
+  const { esp, po } = T.tot;
+  const n = esp.n + po.n, a = amt(esp) + amt(po);
+  out.append(h('div', { class: 'tiles' },
+    h('div', { class: 'tile' }, h('span', { class: 'lbl' }, 'Brews'), h('span', { class: 'tile-val' }, String(n)),
+      h('span', { class: 'tile-sub' }, `${esp.n} esp · ${po.n} pour`)),
+    h('div', { class: 'tile' }, h('span', { class: 'lbl' }, isVolume() ? 'Coffee made' : 'Beans used'), h('span', { class: 'tile-val' }, fmtAmt(a)),
+      h('span', { class: 'tile-sub' }, isVolume() ? 'in the cup' : 'ground (dose)')),
+    h('div', { class: 'tile' }, h('span', { class: 'lbl' }, 'Per day'), h('span', { class: 'tile-val' }, fmtAmt(a / T.days)),
+      h('span', { class: 'tile-sub' }, `${(n / T.days).toFixed(1)} brews/day`))));
+
+  if (!T.inRange.length) {
+    out.append(h('div', { class: 'empty' }, 'No brews in this range. Try a longer one.'));
+    return out;
+  }
+
+  out.append(h('section', { class: 'card' },
+    h('h2', { class: 'sec-title' }, 'Espresso vs pour-over'),
+    SplitRow('By number of brews', esp.n, po.n, (v) => String(v)),
+    SplitRow(isVolume() ? 'By coffee made' : 'By beans used', amt(esp), amt(po), fmtAmt)));
+
+  const per = T.unit === 'week' ? 'week' : 'month';
+  const metric = ui.tr.metric;
+  const amtTitle = isVolume() ? `Coffee made per ${per}` : `Beans used per ${per}`;
+  const u = isVolume() ? 'ml' : 'g';
+  out.append(h('section', { class: 'card' },
+    h('div', { class: 'title-row' },
+      h('h2', { class: 'sec-title' }, metric === 'amount' ? amtTitle : `Brews per ${per}`),
+      Seg([{ value: 'amount', label: isVolume() ? 'ml' : 'Grams' }, { value: 'brews', label: 'Brews' }], metric, (v) => { ui.tr.metric = v; render(); }, { label: 'Chart value' })),
+    h('div', { class: 'legend-row' },
+      h('span', {}, h('i', { class: 'sw sw-esp' }), 'Espresso'),
+      h('span', {}, h('i', { class: 'sw sw-po' }), 'Pour-over')),
+    h('div', { class: 'chart-wrap', id: 'trk-chart' }),
+    h('button', { class: 'link-btn', type: 'button', style: 'align-self:flex-start', onclick: () => { ui.tr.showTable = !ui.tr.showTable; render(); } },
+      ui.tr.showTable ? 'Hide table' : 'Show as table'),
+    ui.tr.showTable ? h('div', { class: 'table-scroll' },
+      h('table', { class: 'data-table' },
+        h('thead', {}, h('tr', {}, h('th', {}, per === 'week' ? 'Week of' : 'Month'), h('th', {}, 'Esp'), h('th', {}, 'Esp ' + u), h('th', {}, 'Pour'), h('th', {}, 'Pour ' + u), h('th', {}, 'Total ' + u))),
+        h('tbody', {}, T.buckets.slice().reverse().map((b) => h('tr', {},
+          h('td', {}, periodLabel(b.start, T.unit, false) + (T.unit === 'month' ? ' ' + new Date(b.start).getFullYear() : '')),
+          h('td', {}, String(b.esp.n)), h('td', {}, fmt0(amt(b.esp))),
+          h('td', {}, String(b.po.n)), h('td', {}, fmt0(amt(b.po))),
+          h('td', {}, fmt0(amt(b.esp) + amt(b.po)))))))) : null));
+
+  // By bean: always bean weight — usage in this range, plus all-time usage against the bag.
+  const rows = state.beans.map((bean) => {
+    const inR = T.inRange.filter((b) => b.beanId === bean.id);
+    const all = state.brews.filter((b) => b.beanId === bean.id);
+    const sum = (list, m) => list.filter((b) => !m || b.method === m).reduce((s, b) => s + (b.dose > 0 ? b.dose : 0), 0);
+    return { bean, rangeG: sum(inR), allE: sum(all, 'espresso'), allP: sum(all, 'pourover') };
+  }).filter((r) => r.rangeG > 0 || (r.bean.status !== 'finished' && r.allE + r.allP > 0))
+    .sort((a, b) => b.rangeG - a.rangeG);
+
+  if (rows.length) {
+    out.append(h('section', { class: 'card' },
+      h('h2', { class: 'sec-title' }, 'By bean'),
+      isVolume() ? h('p', { class: 'note' }, 'Shown in grams of beans, since this tracks what is left in each bag.') : null,
+      h('div', {}, rows.map((r) => {
+        const bag = r.bean.bagWeight > 0 ? r.bean.bagWeight : null;
+        const used = r.allE + r.allP;
+        const sub = bag
+          ? `${fmtG(used)} of ${fmtG(bag)} bag used · about ${fmtG(Math.max(0, bag - used))} left`
+          : `${fmtG(used)} used in total · add a bag weight to see what's left`;
+        const scale = bag ? Math.max(bag, used) : null;
+        return h('div', { class: 'bag' },
+          h('div', { class: 'bag-top' },
+            h('span', { class: 'bag-name' }, r.bean.name, r.bean.status === 'finished' ? h('span', { class: 'muted small' }, ' · finished') : null),
+            h('span', { class: 'bag-val' }, fmtG(r.rangeG))),
+          scale ? h('div', { class: 'bag-bar', role: 'img', 'aria-label': sub },
+            r.allE > 0 ? h('span', { class: 'sw-esp', style: `width:${(r.allE / scale) * 100}%` }) : null,
+            r.allP > 0 ? h('span', { class: 'sw-po', style: `width:${(r.allP / scale) * 100}%` }) : null) : null,
+          h('div', { class: 'hint' }, sub));
+      }))));
+  }
+  return out;
+}
+
+function niceTicks(max, integer) {
+  if (!(max > 0)) return [0, integer ? 1 : 10];
+  const raw = max / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const r = raw / mag;
+  let step = (r <= 1 ? 1 : r <= 2 ? 2 : r <= 5 ? 5 : 10) * mag;
+  if (integer) step = Math.max(1, Math.round(step));
+  const top = Math.ceil(max / step) * step;
+  const out = [];
+  for (let v = 0; v <= top + 1e-9; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+/** Bar path with 4px rounded top corners (data end), square at the baseline. */
+function barPath(x, yTop, w, hgt, round) {
+  if (hgt <= 0) return '';
+  const r = round ? Math.min(4, w / 2, hgt) : 0;
+  const yb = yTop + hgt;
+  return `M${x},${yb}V${yTop + r}` + (r ? `Q${x},${yTop} ${x + r},${yTop}` : '') +
+    `H${x + w - r}` + (r ? `Q${x + w},${yTop} ${x + w},${yTop + r}` : '') + `V${yb}Z`;
+}
+
+/** Draws the stacked column chart at the container's real width (called after render). */
+function drawTrackerChart() {
+  const wrap = document.getElementById('trk-chart');
+  const T = ui.trData;
+  if (!wrap || !T) return;
+  const metric = ui.tr.metric;
+  const B = T.buckets;
+  const val = (b, k) => metric === 'amount' ? amt(b[k]) : b[k].n;
+  const W = Math.max(260, wrap.clientWidth || 320), H = 200;
+  const pl = 40, pr = 6, pt = 10, pb = 24;
+  const iw = W - pl - pr, ih = H - pt - pb;
+  const max = Math.max(0, ...B.map((b) => val(b, 'esp') + val(b, 'po')));
+  const ticks = niceTicks(max, metric === 'brews');
+  const top = ticks[ticks.length - 1];
+  const y = (v) => pt + ih - (v / top) * ih;
+  const slot = iw / B.length;
+  const bw = Math.min(40, Math.max(3, slot * 0.64));
+  const axisFmt = (v) => metric === 'amount' && v >= 1000 ? `${+(v / 1000).toFixed(1)}${isVolume() ? ' L' : 'k'}` : String(v);
+
+  let s = '';
+  for (const t of ticks) {
+    s += `<line class="${t === 0 ? 'c-base' : 'c-grid'}" x1="${pl}" x2="${W - pr}" y1="${y(t)}" y2="${y(t)}"/>`;
+    s += `<text class="c-axis" x="${pl - 6}" y="${y(t) + 4}" text-anchor="end">${axisFmt(t)}</text>`;
+  }
+  let bands = '', bars = '', hits = '', labels = '';
+  const every = Math.ceil(B.length / 6);
+  B.forEach((b, i) => {
+    const x0 = pl + i * slot;
+    const x = x0 + (slot - bw) / 2;
+    const e = val(b, 'esp'), p = val(b, 'po');
+    bands += `<rect class="c-band" data-band="${i}" x="${x0}" y="${pt}" width="${slot}" height="${ih}"/>`;
+    const hE = (e / top) * ih;
+    if (e > 0) bars += `<path class="c-esp" d="${barPath(x, pt + ih - hE, bw, hE, p === 0)}"/>`;
+    if (p > 0) {
+      const gap = e > 0 ? 2 : 0;
+      const hP = Math.max(1, (p / top) * ih - gap);
+      bars += `<path class="c-po" d="${barPath(x, pt + ih - hE - gap - hP, bw, hP, true)}"/>`;
+    }
+    hits += `<rect class="c-hit" data-i="${i}" x="${x0}" y="0" width="${slot}" height="${H}"/>`;
+    if ((B.length - 1 - i) % every === 0) {
+      labels += `<text class="c-axis" x="${x0 + slot / 2}" y="${H - 6}" text-anchor="middle">${periodLabel(b.start, T.unit, false)}</text>`;
+    }
+  });
+  const unitTxt = metric === 'brews' ? 'brews' : isVolume() ? 'ml of coffee made' : 'grams of beans';
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${unitTxt} per ${T.unit}, espresso and pour-over stacked">${bands}${s}${bars}${labels}${hits}</svg>`;
+
+  const tip = h('div', { class: 'tip', hidden: true });
+  wrap.append(tip);
+  let active = -1;
+  const hide = () => {
+    tip.hidden = true;
+    const on = wrap.querySelector('.c-band.on');
+    if (on) on.classList.remove('on');
+    active = -1;
+  };
+  const show = (i) => {
+    if (i === active) return;
+    hide();
+    active = i;
+    const b = B[i];
+    const band = wrap.querySelector(`[data-band="${i}"]`);
+    if (band) band.classList.add('on');
+    const row = (cls, name, n, x) => h('div', { class: 'tip-row' + (cls ? '' : ' total') },
+      cls ? h('i', { class: 'sw ' + cls }) : null, name, h('span', { class: 'v' }, `${n} · ${fmtAmt(x)}`));
+    tip.replaceChildren(
+      h('b', {}, periodLabel(b.start, T.unit, true)),
+      row('sw-esp', 'Espresso', b.esp.n, amt(b.esp)),
+      row('sw-po', 'Pour-over', b.po.n, amt(b.po)),
+      row('', 'Total', b.esp.n + b.po.n, amt(b.esp) + amt(b.po)));
+    tip.hidden = false;
+    const cx = pl + (i + 0.5) * slot;
+    const tw = tip.offsetWidth;
+    const left = cx + 12 + tw > W ? cx - 12 - tw : cx + 12;
+    tip.style.left = Math.max(0, left) + 'px';
+  };
+  wrap.addEventListener('pointermove', (ev) => {
+    const t = ev.target.closest && ev.target.closest('[data-i]');
+    if (t) show(+t.dataset.i); else hide();
+  });
+  wrap.addEventListener('pointerdown', (ev) => {
+    const t = ev.target.closest && ev.target.closest('[data-i]');
+    if (t) show(+t.dataset.i);
+  });
+  wrap.addEventListener('pointerleave', hide);
+}
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (ui.tab === 'tracker') drawTrackerChart(); }, 150);
+});
+
+/* ---------- Settings ---------- */
+function ListRow(name, sub, onEdit, onDelete) {
+  return h('div', { class: 'list-row' },
+    h('div', { class: 'lr-main' }, h('div', { class: 'lr-name' }, name), h('div', { class: 'lr-sub' }, sub)),
+    h('div', { class: 'row-actions' },
+      h('button', { class: 'btn btn-secondary btn-sm', type: 'button', onclick: onEdit }, 'Edit'),
+      h('button', { class: 'btn btn-danger-ghost btn-sm', type: 'button', onclick: onDelete, 'aria-label': 'Delete ' + name }, 'Delete')));
+}
+
+function viewSettings() {
+  const s = state.settings;
+  const D = s.defaults;
+  const tStep = tUnit() === 'F' ? 1 : 0.5, tDec = tUnit() === 'F' ? 0 : 1;
+  const setStepper = (field, label, unit, obj, key, step, dec, extra = {}) => Stepper(Object.assign({
+    field, label, unit, step, decimals: dec, min: 0,
+    get: () => obj[key], set: (v) => { if (v != null) obj[key] = v; }, onChange: persistSettingsSoon
+  }, extra));
+  const tempStepper = (field, obj) => Stepper({
+    field, label: 'Water temp', unit: '°' + tUnit(), step: tStep, decimals: tDec,
+    get: () => tempToDisplay(obj.tempC), set: (v) => { if (v != null) obj.tempC = tempFromDisplay(v); }, onChange: persistSettingsSoon
+  });
+  const hasSample = ['beans', 'grinders', 'brewers', 'brews'].some((k) => state[k].some((x) => x.sample));
+  const storageMsg = {
+    indexeddb: 'Your data is saved in this browser (IndexedDB).',
+    localstorage: 'Your data is saved in this browser (localStorage).',
+    memory: 'This browser is blocking storage, so changes are lost when the page closes. Export before leaving.'
+  }[Store.backend];
+
+  const exportBox = h('textarea', { class: 'json-box', id: 'export-box', rows: 6, readonly: true, hidden: true, 'aria-label': 'Exported JSON' });
+  const importBox = h('textarea', { class: 'json-box', id: 'imp-text', rows: 4, placeholder: 'Paste exported JSON here, or choose a file' });
+  const fileInput = h('input', {
+    type: 'file', id: 'imp-file', accept: 'application/json,.json',
+    onchange: (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const rd = new FileReader();
+      rd.onload = () => { importBox.value = String(rd.result || ''); toast(`Loaded ${file.name}. Choose merge or replace, then Import.`); };
+      rd.onerror = () => toast('Could not read that file.', 'warn');
+      rd.readAsText(file);
+    }
+  });
+
+  return h('div', { class: 'stack' },
+    h('h1', { class: 'page-title' }, 'Settings'),
+
+    h('section', { class: 'card' },
+      h('div', { class: 'title-row' }, h('h2', { class: 'sec-title' }, 'Grinders'),
+        h('button', { class: 'btn btn-secondary btn-sm', type: 'button', onclick: () => openGrinderForm(null) }, 'Add grinder')),
+      state.grinders.length
+        ? h('div', { class: 'list' }, state.grinders.map((g) => ListRow(g.name, `Step ${g.step} · ${g.finerIsLower !== false ? 'lower number = finer' : 'higher number = finer'}`, () => openGrinderForm(g), () => deleteEquipment('grinders', g))))
+        : h('p', { class: 'note' }, 'No grinders yet.')),
+
+    h('section', { class: 'card' },
+      h('div', { class: 'title-row' }, h('h2', { class: 'sec-title' }, 'Brewers'),
+        h('button', { class: 'btn btn-secondary btn-sm', type: 'button', onclick: () => openBrewerForm(null) }, 'Add brewer')),
+      state.brewers.length
+        ? h('div', { class: 'list' }, state.brewers.map((b) => ListRow(b.name, b.type === 'espresso' ? 'Espresso machine' : 'Pour-over dripper', () => openBrewerForm(b), () => deleteEquipment('brewers', b))))
+        : h('p', { class: 'note' }, 'No brewers yet.')),
+
+    h('section', { class: 'card' },
+      h('h2', { class: 'sec-title' }, 'Temperature unit'),
+      Seg([{ value: 'F', label: '°F' }, { value: 'C', label: '°C' }], tUnit(), (v) => { s.tempUnit = v; persist('settings'); render(); }, { label: 'Temperature unit' })),
+
+    h('section', { class: 'card' },
+      h('h2', { class: 'sec-title' }, 'Default recipes'),
+      h('p', { class: 'note' }, 'Used for the first brew of a method. After that, the form starts from your last brew.'),
+      h('span', { class: 'lbl' }, 'Espresso'),
+      h('div', { class: 'grid2 grid3' },
+        setStepper('def-e-dose', 'Dose', 'g', D.espresso, 'dose', 0.5, 1),
+        setStepper('def-e-yield', 'Yield', 'g', D.espresso, 'yield', 1, 1),
+        tempStepper('def-e-temp', D.espresso)),
+      h('span', { class: 'lbl' }, 'Pour-over'),
+      h('div', { class: 'grid2 grid3' },
+        setStepper('def-p-water', 'Total water', 'g', D.pourover, 'water', 10, 0),
+        setStepper('def-p-ratio', 'Ratio', '1:x', D.pourover, 'ratio', 0.5, 1, { min: 1 }),
+        tempStepper('def-p-temp', D.pourover))),
+
+    h('section', { class: 'card' },
+      h('h2', { class: 'sec-title' }, 'Backup & move data'),
+      h('p', { class: 'note' }, storageMsg),
+      h('p', { class: 'note mono' }, `${state.beans.length} beans · ${state.brews.length} brews · ${state.grinders.length} grinders · ${state.brewers.length} brewers`),
+      h('span', { class: 'lbl' }, 'Export'),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn btn-secondary', type: 'button', onclick: exportDownload }, 'Download JSON'),
+        h('button', { class: 'btn btn-secondary', type: 'button', onclick: exportCopy }, 'Copy JSON')),
+      h('p', { class: 'note' }, 'Inside Claude, downloads are blocked. Use Copy JSON and save the text as a .json file. On your own hosted copy, Download works.'),
+      exportBox,
+      h('span', { class: 'lbl' }, 'Import'),
+      h('label', { class: 'btn btn-secondary file-label', for: 'imp-file' }, 'Choose a JSON file', fileInput),
+      importBox,
+      SegLive([{ value: 'merge', label: 'Merge' }, { value: 'replace', label: 'Replace all' }], () => ui.importMode, (v) => { ui.importMode = v; }, 'Import mode'),
+      h('p', { class: 'note' }, 'Merge adds new items and keeps the newer version of any item in both. Replace all deletes what is here first.'),
+      h('button', { class: 'btn btn-primary', type: 'button', onclick: doImport }, 'Import')),
+
+    h('section', { class: 'card' },
+      h('h2', { class: 'sec-title' }, 'Clean up'),
+      hasSample ? h('button', { class: 'btn btn-secondary', type: 'button', onclick: removeSampleData }, 'Remove example data') : null,
+      h('button', { class: 'btn btn-danger-ghost', type: 'button', onclick: clearAllData }, 'Delete all data')));
+}
+
+function openGrinderForm(g) {
+  const isNew = !g;
+  const f = g ? clone(g) : { name: '', step: 1, finerIsLower: true };
+  const err = h('div', { class: 'form-err', role: 'alert' });
+  const stepInput = h('input', { class: 'input', id: 'g-step', inputmode: 'decimal', value: String(f.step) });
+  const quick = SegLive([0.1, 0.25, 0.5, 1, 2].map((v) => ({ value: v, label: String(v) })), () => f.step, (v) => { f.step = v; stepInput.value = String(v); }, 'Common step sizes');
+  stepInput.addEventListener('input', () => { const n = num(stepInput.value); if (n > 0) { f.step = n; quick.sync(); } });
+  const body = [
+    Field('Name', h('input', { class: 'input', id: 'g-name', value: f.name, placeholder: 'e.g. Niche Zero', oninput: (e) => { f.name = e.target.value; } }), 'g-name'),
+    h('div', { class: 'field' }, h('label', { class: 'lbl', for: 'g-step' }, 'Grind step size'), quick, stepInput,
+      h('div', { class: 'hint' }, 'The smallest change you make on this grinder. Suggestions move in multiples of it.')),
+    h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'Direction'),
+      SegLive([{ value: true, label: 'Lower = finer' }, { value: false, label: 'Higher = finer' }], () => f.finerIsLower, (v) => { f.finerIsLower = v; }, 'Grind direction')),
+    err
+  ];
+  const save = async () => {
+    f.name = (f.name || '').trim();
+    if (!f.name) { err.textContent = 'Give the grinder a name.'; return; }
+    if (!(f.step > 0)) { err.textContent = 'Step size must be more than 0.'; return; }
+    f.updatedAt = Date.now();
+    if (isNew) { f.id = uid(); state.grinders.push(f); if (!state.settings.lastGrinderId) state.settings.lastGrinderId = f.id; }
+    else { const i = state.grinders.findIndex((x) => x.id === f.id); if (i >= 0) state.grinders[i] = f; }
+    if (ui.draft && !ui.draft.grinderId) ui.draft.grinderId = f.id;
+    await persist('grinders', 'settings');
+    closeSheet(true);
+    render();
+  };
+  openSheet(isNew ? 'Add grinder' : 'Edit grinder', body, [
+    h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => closeSheet() }, 'Cancel'),
+    h('button', { class: 'btn btn-primary', type: 'button', onclick: save }, 'Save')
+  ]);
+}
+
+function openBrewerForm(b) {
+  const isNew = !b;
+  const f = b ? clone(b) : { name: '', type: 'pourover' };
+  const err = h('div', { class: 'form-err', role: 'alert' });
+  const body = [
+    Field('Name', h('input', { class: 'input', id: 'w-name', value: f.name, placeholder: 'e.g. V60 02, Kalita 185, Linea Mini', oninput: (e) => { f.name = e.target.value; } }), 'w-name'),
+    h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'Type'),
+      SegLive([{ value: 'espresso', label: 'Espresso machine' }, { value: 'pourover', label: 'Pour-over dripper' }], () => f.type, (v) => { f.type = v; }, 'Brewer type')),
+    err
+  ];
+  const save = async () => {
+    f.name = (f.name || '').trim();
+    if (!f.name) { err.textContent = 'Give the brewer a name.'; return; }
+    f.updatedAt = Date.now();
+    if (isNew) { f.id = uid(); state.brewers.push(f); }
+    else { const i = state.brewers.findIndex((x) => x.id === f.id); if (i >= 0) state.brewers[i] = f; }
+    if (ui.draft && !ui.draft.brewerId && ui.draft.method === f.type) ui.draft.brewerId = f.id;
+    await persist('brewers');
+    closeSheet(true);
+    render();
+  };
+  openSheet(isNew ? 'Add brewer' : 'Edit brewer', body, [
+    h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => closeSheet() }, 'Cancel'),
+    h('button', { class: 'btn btn-primary', type: 'button', onclick: save }, 'Save')
+  ]);
+}
+
+async function deleteEquipment(kind, item) {
+  const key = kind === 'grinders' ? 'grinderId' : 'brewerId';
+  const used = state.brews.filter((b) => b[key] === item.id).length;
+  const ok = await confirmDialog(`Delete "${item.name}"?${used ? ` ${used} saved brew${used === 1 ? '' : 's'} will keep their numbers but show no ${kind === 'grinders' ? 'grinder' : 'brewer'}.` : ''}`, 'Delete');
+  if (!ok) return;
+  state[kind] = state[kind].filter((x) => x.id !== item.id);
+  if (ui.draft && ui.draft[key] === item.id) ui.draft[key] = null;
+  if (state.settings.lastGrinderId === item.id) state.settings.lastGrinderId = null;
+  await persist(kind, 'settings');
+  render();
+}
+
+/* ---------- Export / import ---------- */
+function exportPayload() {
+  return JSON.stringify({
+    app: 'coffee-dial-in', version: 1, exportedAt: new Date().toISOString(),
+    beans: state.beans, grinders: state.grinders, brewers: state.brewers, brews: state.brews, settings: state.settings
+  }, null, 2);
+}
+function exportDownload() {
+  try {
+    const blob = new Blob([exportPayload()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = h('a', { href: url, download: `coffee-dial-in-${localDateStr()}.json` });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    toast('Download started. If no file appears, use Copy JSON.');
+  } catch (e) {
+    toast('Download failed. Use Copy JSON instead.', 'warn');
+  }
+}
+function exportCopy() {
+  const txt = exportPayload();
+  const box = document.getElementById('export-box');
+  const showBox = () => { box.value = txt; box.hidden = false; box.focus(); box.select(); };
+  try {
+    navigator.clipboard.writeText(txt)
+      .then(() => toast('Copied. Paste it into a .json file to keep it.'))
+      .catch(() => { showBox(); toast('Clipboard is blocked here. The JSON is selected below; copy it manually.', 'warn'); });
+  } catch (e) {
+    showBox();
+    toast('Clipboard is blocked here. The JSON is selected below; copy it manually.', 'warn');
+  }
+}
+function mergeList(cur, inc) {
+  const map = new Map(cur.map((x) => [x.id, x]));
+  let added = 0, updated = 0;
+  for (const it of inc) {
+    const ex = map.get(it.id);
+    if (!ex) { map.set(it.id, it); added++; }
+    else if ((it.updatedAt || 0) > (ex.updatedAt || 0)) { map.set(it.id, it); updated++; }
+  }
+  return { list: [...map.values()], added, updated };
+}
+async function doImport() {
+  const txt = document.getElementById('imp-text').value.trim();
+  if (!txt) { toast('Paste JSON or choose a file first.', 'warn'); return; }
+  let data;
+  try { data = JSON.parse(txt); } catch (e) { toast('That text is not valid JSON.', 'warn'); return; }
+  const kinds = ['beans', 'grinders', 'brewers', 'brews'];
+  if (!data || typeof data !== 'object' || !kinds.some((k) => Array.isArray(data[k]))) {
+    toast('No beans, brews or equipment found in that JSON.', 'warn');
+    return;
+  }
+  const clean = (k) => (Array.isArray(data[k]) ? data[k] : []).filter((x) => x && typeof x.id === 'string');
+  let msg;
+  if (ui.importMode === 'replace') {
+    const ok = await confirmDialog(`Replace everything here with the imported data? Your current ${state.beans.length} beans and ${state.brews.length} brews will be deleted.`, 'Replace all');
+    if (!ok) return;
+    for (const k of kinds) state[k] = clean(k);
+    state.settings = mergeSettings(data.settings);
+    state.settings.onboarded = true;
+    msg = `Replaced with ${state.beans.length} beans and ${state.brews.length} brews.`;
+  } else {
+    let added = 0, updated = 0;
+    for (const k of kinds) {
+      const r = mergeList(state[k], clean(k));
+      state[k] = r.list; added += r.added; updated += r.updated;
+    }
+    state.settings.onboarded = true;
+    msg = `Merged: ${added} added, ${updated} updated.`;
+  }
+  state.brews.forEach(normalizeBrew);
+  ui.draft = null; ui.result = null; ui.editingId = null; ui.beanDetailId = null;
+  document.getElementById('imp-text').value = '';
+  await persist(...COLLECTIONS);
+  render();
+  toast(msg);
+}
+
+/* ---------- Example data ---------- */
+async function loadSampleData() {
+  const now = Date.now();
+  const daysAgo = (n) => localDateStr(new Date(now - n * 86400000));
+  const at = (dAgo, hr, min) => { const d = new Date(now - dAgo * 86400000); d.setHours(hr, min, 0, 0); return d.getTime(); };
+  const g = { id: uid(), name: 'Example grinder', step: 0.5, finerIsLower: true, sample: true, updatedAt: now };
+  const m = { id: uid(), name: 'Example espresso machine', type: 'espresso', sample: true, updatedAt: now };
+  const v = { id: uid(), name: 'V60 (example)', type: 'pourover', sample: true, updatedAt: now };
+  const b1 = { id: uid(), name: 'Example: Ethiopia Guji', roaster: 'Sample Roasters', origin: 'Guji, Ethiopia', process: 'natural', roast: 'light', roastDate: daysAgo(13), bagWeight: 250, notes: 'Example bean. Remove it in Settings → Clean up.', status: 'active', sample: true, createdAt: now, updatedAt: now };
+  const b2 = { id: uid(), name: 'Example: Colombia Huila', roaster: 'Sample Roasters', origin: 'Huila, Colombia', process: 'washed', roast: 'medium', roastDate: daysAgo(20), bagWeight: 340, notes: '', status: 'active', sample: true, createdAt: now, updatedAt: now };
+  state.grinders.push(g); state.brewers.push(m, v); state.beans.push(b1, b2);
+  const mk = (o) => {
+    const b = Object.assign({ id: uid(), grinderId: g.id, notes: '', sample: true, updatedAt: now }, o);
+    b.suggestion = suggest(b);
+    b.dialedIn = !!(b.suggestion && b.suggestion.dialedIn);
+    state.brews.push(b);
+  };
+  const esp = (dAgo, grind, yld, time, S, E, rating, notes) => mk({
+    ts: at(dAgo, 7, 30), method: 'espresso', beanId: b1.id, brewerId: m.id, grind, dose: 18, yield: yld, time, preinf: 0, tempC: 93,
+    taste: { strength: S, extraction: E, rating, notes }
+  });
+  esp(4, 12, 36, 22, -1, -2, 2, 'Sharp lemon, thin body');
+  esp(3, 11, 36, 27, 0, -1, 3, 'Sweeter, still a little tart');
+  esp(2, 10.5, 36, 30, 1, 0, 4, 'Syrupy, very intense');
+  esp(1, 10.5, 38, 31, 0, 0, 5, 'Blueberry, cocoa, balanced');
+  mk({ ts: at(2, 15, 10), method: 'pourover', beanId: b2.id, brewerId: v.id, grind: 22, dose: 15.6, water: 250, bloomWater: 50, bloomTime: 45, brewTime: 205, tempC: 96, taste: { strength: 0, extraction: 1, rating: 3, notes: 'Drying finish' } });
+  mk({ ts: at(1, 15, 5), method: 'pourover', beanId: b2.id, brewerId: v.id, grind: 23, dose: 15.6, water: 250, bloomWater: 50, bloomTime: 45, brewTime: 190, tempC: 96, taste: { strength: -1, extraction: 0, rating: 4, notes: 'Clean caramel, a bit light' } });
+  state.settings.onboarded = true;
+  state.settings.lastGrinderId = g.id;
+  ui.draft = null;
+  await persist(...COLLECTIONS);
+  render();
+  toast('Example data loaded.');
+}
+async function removeSampleData() {
+  const ok = await confirmDialog('Remove all example beans, brews and equipment? Your own entries stay.', 'Remove examples');
+  if (!ok) return;
+  for (const k of ['beans', 'grinders', 'brewers', 'brews']) state[k] = state[k].filter((x) => !x.sample);
+  if (!grinderById(state.settings.lastGrinderId)) state.settings.lastGrinderId = null;
+  ui.draft = null; ui.result = null; ui.beanDetailId = null; ui.editingId = null;
+  await persist(...COLLECTIONS);
+  render();
+  toast('Example data removed.');
+}
+async function clearAllData() {
+  const ok = await confirmDialog(`Delete all ${state.beans.length} beans, ${state.brews.length} brews and your equipment from this browser? Export first if you want a backup.`, 'Delete everything');
+  if (!ok) return;
+  state.beans = []; state.grinders = []; state.brewers = []; state.brews = [];
+  state.settings = clone(DEFAULT_SETTINGS);
+  ui.draft = null; ui.result = null; ui.beanDetailId = null; ui.editingId = null;
+  await persist(...COLLECTIONS);
+  goTab('brew');
+  toast('All data deleted.');
+}
+
+/* =====================================================================
+   7. BOOT
+   ===================================================================== */
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => goTab(t.dataset.tab)));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ui.sheet) closeSheet(); });
+
+(async function boot() {
+  try { const t = localStorage.getItem(LS_PREFIX + 'tab'); if (VIEWS[t]) ui.tab = t; } catch (e) { /* ignore */ }
+  await Store.init();
+  for (const k of COLLECTIONS) {
+    const v = await Store.get(k);
+    if (k === 'settings') state.settings = mergeSettings(v);
+    else if (Array.isArray(v)) state[k] = v;
+  }
+  state.brews.forEach(normalizeBrew);
+  render();
+})();
+</script>
+
+</html>
